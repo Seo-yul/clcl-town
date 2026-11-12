@@ -16,6 +16,13 @@ npm run preview  # 만든 dist/ 를 미리 본다
 `dist/` 폴더는 정적 파일이므로 GitHub Pages, Netlify, 일반 웹 서버 어디에 올려도 된다.
 경로를 상대 경로로 만들기 때문에 하위 폴더(예: `example.com/town/`)에 올려도 동작한다.
 
+## 배포
+
+`main` 브랜치에 push 하면 GitHub Actions(`.github/workflows/deploy.yml`)가 빌드해서 GitHub Pages 에 올린다.
+주소는 https://devops.ai.kr/clcl-town/ 이다. `Seo-yul` 계정의 GitHub Pages 에 연결된 도메인을 그대로 쓰기 때문에,
+https://seo-yul.github.io/clcl-town/ 으로 들어와도 이 주소로 넘어간다.
+저장소의 Actions 탭에서 진행 상황을 볼 수 있고, 같은 탭에서 손으로 다시 배포할 수도 있다.
+
 ## 농장 주인 이름 바꾸기
 
 `src/config.js` 의 `owners` 배열을 고친다. 앞에 있는 이름일수록 광장에 가까운 구획을 받는다.
@@ -52,12 +59,15 @@ http://localhost:5173/?owners=하늘,바다,구름이
 3. https://giscus.app/ko 에 저장소 이름을 넣고 `방명록` 카테고리를 고르면 `data-repo-id`, `data-category-id` 가 나온다.
    이 두 값을 `src/config.js` 의 `guestbook.repoId`, `guestbook.categoryId` 에 넣는다.
 
-`giscus.json` 은 방명록이 뜰 수 있는 사이트 주소를 정한다. 지금은 GitHub Pages 주소와 로컬 개발 주소만 허용한다.
+`giscus.json` 은 방명록이 뜰 수 있는 사이트 주소를 정한다. 지금은 배포 주소(`devops.ai.kr`, `seo-yul.github.io`)와 로컬 개발 주소만 허용한다.
 다른 도메인으로 배포하면 그 주소를 `origins` 에 추가해야 방명록이 뜬다.
 
 `guestbook.titleFormat` 은 방명록에 글이 달린 뒤에는 바꾸지 않는다. giscus 가 이 제목으로 농장의 글을 찾기 때문이다.
 
 방명록을 연 상태의 주소(`?farm=윤서율`)는 그 농장으로 바로 들어가는 링크가 된다.
+
+방명록의 색과 글꼴은 `public/giscus-theme.css` 가 정한다. giscus 위젯은 이 파일을 배포된 사이트에서 읽는다.
+로컬 개발 화면도 배포된 파일을 쓰므로, 이 파일을 고친 결과는 배포한 뒤에 보인다.
 
 ## 조작
 
@@ -84,9 +94,11 @@ http://localhost:5173/?owners=하늘,바다,구름이
 | `src/sky.js` | 시간대별 하늘과 조명, 떠다니는 구름 |
 | `src/ui.js` | 이름표, 말풍선, 미니맵, 정보 창, 모바일 조작 |
 | `public/favicon.svg` | 구름 파비콘 |
+| `public/giscus-theme.css` | 방명록 색과 글꼴 |
+| `public/fonts/` | 갈무리 글꼴. 사이트와 방명록이 함께 쓴다 |
 
 ## 사용한 것
 
 - [three.js](https://threejs.org/) 0.186.1
 - [Vite](https://vite.dev/) 8.3.5
-- [갈무리(Galmuri)](https://galmuri.quiple.dev/) 픽셀 글꼴. SIL Open Font License 1.1 을 따르며 라이선스 전문은 `src/fonts/OFL.md` 에 있다.
+- [갈무리(Galmuri)](https://galmuri.quiple.dev/) 픽셀 글꼴. SIL Open Font License 1.1 을 따르며 라이선스 전문은 `public/fonts/OFL.md` 에 있다.

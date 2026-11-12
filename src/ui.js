@@ -311,6 +311,17 @@ export class Dialog {
 }
 
 /**
+ * URL of the town's giscus theme (public/giscus-theme.css).
+ * The giscus iframe fetches it cross-origin from giscus.app, so it must be served
+ * over https with CORS. Pages served over https (GitHub Pages) use their own copy;
+ * local http dev servers can't be reached from giscus.app, so they use the deployed copy.
+ */
+function guestbookTheme(cfg) {
+  if (location.protocol === 'https:') return new URL('giscus-theme.css', document.baseURI).href;
+  return cfg.deployedTheme || 'light';
+}
+
+/**
  * Loads the giscus widget into `wrapper` (which holds a `.giscus` element).
  * Each farm maps to one GitHub Discussion whose title is `title`; giscus creates
  * that discussion when the first entry is posted. Strict mode matches the title
@@ -332,7 +343,7 @@ function mountGiscus(wrapper, cfg, title) {
     'reactions-enabled': '1',
     'emit-metadata': '0',
     'input-position': 'top',
-    theme: 'light',
+    theme: guestbookTheme(cfg),
     lang: 'ko',
   };
   for (const [key, value] of Object.entries(data)) script.setAttribute(`data-${key}`, value);

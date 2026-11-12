@@ -1,0 +1,241 @@
+/*! 클클 마을 방명록 테마. giscus 의 light 테마를 바탕으로 마을 색과 글꼴에 맞췄다.
+ * light 테마 원본: MIT License, Copyright (c) 2018 GitHub Inc.
+ * https://github.com/primer/primitives/blob/main/LICENSE
+ * 이 파일은 giscus 위젯(giscus.app) 안에서 읽힌다. 글꼴과 그림 경로는 이 파일 위치를 기준으로 한다.
+ */
+
+@font-face {
+  font-family: 'Galmuri11';
+  font-weight: 700;
+  font-display: swap;
+  src: url('fonts/Galmuri11-Bold.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Galmuri14';
+  font-weight: 400;
+  font-display: swap;
+  src: url('fonts/Galmuri14.woff2') format('woff2');
+}
+
+main {
+  --color-prettylights-syntax-comment: #6e7781;
+  --color-prettylights-syntax-constant: #0550ae;
+  --color-prettylights-syntax-entity: #8250df;
+  --color-prettylights-syntax-storage-modifier-import: #24292f;
+  --color-prettylights-syntax-entity-tag: #116329;
+  --color-prettylights-syntax-keyword: #cf222e;
+  --color-prettylights-syntax-string: #0a3069;
+  --color-prettylights-syntax-variable: #953800;
+  --color-prettylights-syntax-brackethighlighter-unmatched: #82071e;
+  --color-prettylights-syntax-invalid-illegal-text: #f6f8fa;
+  --color-prettylights-syntax-invalid-illegal-bg: #82071e;
+  --color-prettylights-syntax-carriage-return-text: #f6f8fa;
+  --color-prettylights-syntax-carriage-return-bg: #cf222e;
+  --color-prettylights-syntax-string-regexp: #116329;
+  --color-prettylights-syntax-markup-list: #3b2300;
+  --color-prettylights-syntax-markup-heading: #0550ae;
+  --color-prettylights-syntax-markup-italic: #24292f;
+  --color-prettylights-syntax-markup-bold: #24292f;
+  --color-prettylights-syntax-markup-deleted-text: #82071e;
+  --color-prettylights-syntax-markup-deleted-bg: #ffebe9;
+  --color-prettylights-syntax-markup-inserted-text: #116329;
+  --color-prettylights-syntax-markup-inserted-bg: #dafbe1;
+  --color-prettylights-syntax-markup-changed-text: #953800;
+  --color-prettylights-syntax-markup-changed-bg: #ffd8b5;
+  --color-prettylights-syntax-markup-ignored-text: #eaeef2;
+  --color-prettylights-syntax-markup-ignored-bg: #0550ae;
+  --color-prettylights-syntax-meta-diff-range: #8250df;
+  --color-prettylights-syntax-brackethighlighter-angle: #57606a;
+  --color-prettylights-syntax-sublimelinter-gutter-mark: #8c959f;
+  --color-prettylights-syntax-constant-other-reference-link: #0a3069;
+  --clcl-ink: #2b2a3d;
+  --clcl-ink-soft: #6b6880;
+  --clcl-paper: #fffdf7;
+  --clcl-cream: #f3efe3;
+  --clcl-line: #e2dccb;
+  --clcl-blue: #4aa3ef;
+  --clcl-blue-dark: #2c7fc9;
+  --clcl-pixel: 'Galmuri11', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
+  --clcl-body: 'Galmuri14', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
+
+  --color-btn-text: var(--clcl-ink);
+  --color-btn-bg: var(--clcl-paper);
+  --color-btn-border: var(--clcl-ink);
+  --color-btn-shadow: 0 3px 0 rgb(43 42 61 / 25%);
+  --color-btn-inset-shadow: 0 0 transparent;
+  --color-btn-hover-bg: #fff;
+  --color-btn-hover-border: var(--clcl-ink);
+  --color-btn-active-bg: var(--clcl-cream);
+  --color-btn-active-border: var(--clcl-ink);
+  --color-btn-selected-bg: var(--clcl-cream);
+  --color-btn-primary-text: #fff;
+  --color-btn-primary-bg: var(--clcl-blue);
+  --color-btn-primary-border: var(--clcl-ink);
+  --color-btn-primary-shadow: 0 3px 0 var(--clcl-blue-dark);
+  --color-btn-primary-inset-shadow: 0 0 transparent;
+  --color-btn-primary-hover-bg: #5cb0f5;
+  --color-btn-primary-hover-border: var(--clcl-ink);
+  --color-btn-primary-selected-bg: var(--clcl-blue-dark);
+  --color-btn-primary-selected-shadow: 0 0 transparent;
+  --color-btn-primary-disabled-text: rgb(255 255 255 / 85%);
+  --color-btn-primary-disabled-bg: #a9d3f7;
+  --color-btn-primary-disabled-border: #9b98ad;
+  --color-action-list-item-default-hover-bg: rgb(226 220 203 / 45%);
+  --color-segmented-control-bg: var(--clcl-cream);
+  --color-segmented-control-button-bg: #fff;
+  --color-segmented-control-button-selected-border: var(--clcl-line);
+  --color-fg-default: var(--clcl-ink);
+  --color-fg-muted: var(--clcl-ink-soft);
+  --color-fg-subtle: #8f8ba3;
+  --color-canvas-default: #fff;
+  --color-canvas-overlay: #fff;
+  --color-canvas-inset: var(--clcl-paper);
+  --color-canvas-subtle: var(--clcl-cream);
+  --color-border-default: var(--clcl-line);
+  --color-border-muted: #ece6d6;
+  --color-neutral-muted: rgb(226 220 203 / 45%);
+  --color-accent-fg: var(--clcl-blue-dark);
+  --color-accent-emphasis: var(--clcl-blue);
+  --color-accent-muted: rgb(74 163 239 / 40%);
+  --color-accent-subtle: #e3f2fd;
+  --color-success-fg: #3f8f3a;
+  --color-attention-fg: #9a6700;
+  --color-attention-muted: rgb(212 167 44 / 40%);
+  --color-attention-subtle: #fff8c5;
+  --color-danger-fg: #d1242f;
+  --color-danger-muted: rgb(255 129 130 / 40%);
+  --color-danger-subtle: #ffebe9;
+  --color-primer-shadow-inset: 0 0 transparent;
+  --color-scale-gray-1: var(--clcl-cream);
+  --color-scale-blue-1: #cfe8fc;
+
+  /*! Extensions from @primer/css/alerts/flash.scss */
+  --color-social-reaction-bg-hover: var(--color-scale-gray-1);
+  --color-social-reaction-bg-reacted-hover: var(--color-scale-blue-1);
+
+  font-family: var(--clcl-body);
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+}
+
+main .pagination-loader-container {
+  background-image: url("https://github.com/images/modules/pulls/progressive-disclosure-line.svg");
+}
+
+/* 불러오는 중에는 옥토캣 그림 대신 마을 구름을 보여 준다. */
+main .gsc-loading-image {
+  background-image: url("favicon.svg");
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+  image-rendering: pixelated;
+}
+
+/* 제목류는 마을의 픽셀 글꼴로 쓴다. */
+main .gsc-reactions-count,
+main .gsc-comments-count,
+main .gsc-comments-count-separator,
+main .gsc-replies-count,
+main .gsc-comment-author .font-semibold,
+main .gsc-reply-author .font-semibold {
+  font-family: var(--clcl-pixel);
+  font-weight: 700;
+}
+
+main .gsc-reactions-count,
+main .gsc-left-header h4 {
+  font-size: 13px;
+}
+
+main .gsc-left-header em {
+  font-style: normal;
+  font-size: 12px;
+}
+
+/* 버튼은 마을 창의 동그란 버튼 모양을 따른다. */
+main .btn {
+  border-width: 2px;
+  border-radius: 999px;
+  font-family: var(--clcl-pixel);
+  font-weight: 700;
+}
+
+main .btn:active {
+  transform: translateY(2px);
+  box-shadow: 0 1px 0 rgb(43 42 61 / 25%);
+}
+
+main .btn-primary:active {
+  box-shadow: 0 1px 0 var(--clcl-blue-dark);
+}
+
+main .BtnGroup .btn {
+  box-shadow: none;
+}
+
+/* 글쓰기 상자 */
+main .gsc-comment-box {
+  border: 1.5px solid var(--clcl-line);
+  border-radius: 14px;
+  overflow: hidden;
+}
+
+main .gsc-comment-box-tabs {
+  border-bottom-color: var(--clcl-line);
+  background: var(--clcl-cream);
+}
+
+main .gsc-comment-box-tabs button:not(.gsc-toolbar-item) {
+  border-radius: 10px 10px 0 0;
+}
+
+main .gsc-comment-box-textarea,
+main .gsc-comment-box-textarea-extras {
+  border-color: var(--clcl-line);
+  background: var(--clcl-paper);
+  font-family: var(--clcl-body);
+}
+
+main .gsc-comment-box-textarea {
+  border-radius: 10px 10px 0 0;
+}
+
+main .gsc-comment-box-textarea-extras {
+  border-radius: 0 0 10px 10px;
+}
+
+main .gsc-comment-box-textarea:focus {
+  border-color: var(--clcl-blue);
+  box-shadow: 0 0 0 3px rgb(74 163 239 / 25%);
+}
+
+/* 방명록 글 */
+main .gsc-comment > div {
+  border: 1.5px solid var(--clcl-line);
+  border-radius: 14px;
+}
+
+main .gsc-replies {
+  border-radius: 0 0 14px 14px;
+}
+
+main .gsc-comment-author-avatar img,
+main .gsc-reply-author-avatar img {
+  border: 2px solid var(--clcl-ink);
+}
+
+main .gsc-social-reaction-summary-item {
+  border-radius: 999px;
+}
+
+main .gsc-reactions-popover {
+  border: 1.5px solid var(--clcl-line);
+  border-radius: 12px;
+}
+
+main .markdown code,
+main .markdown pre,
+main .markdown kbd {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}

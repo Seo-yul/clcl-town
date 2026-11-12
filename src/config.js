@@ -34,6 +34,10 @@ export const CONFIG = {
     // giscus 는 이 제목으로 농장의 방명록 글을 찾는다.
     // 방명록에 글이 달린 뒤에 바꾸면 기존 글과 연결이 끊기므로 바꾸지 않는다.
     titleFormat: '{name}의 농장 방명록',
+    // 방명록 모양을 정하는 CSS 파일(public/giscus-theme.css)을 배포한 주소다.
+    // giscus 위젯은 내 컴퓨터의 개발 서버에 있는 파일을 읽지 못하므로, 로컬 개발 화면에서는 이 주소의 파일을 쓴다.
+    // https 로 배포한 화면에서는 그 사이트에 함께 올라간 파일을 쓴다.
+    deployedTheme: 'https://devops.ai.kr/clcl-town/giscus-theme.css',
   },
 };
 
