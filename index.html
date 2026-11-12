@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>클클 마을</title>
+    <meta name="description" content="구름 아래 작은 농장 마을. 캐릭터를 움직여 이웃들의 농장과 동물들을 구경하는 3D 복셀 웹사이트." />
+    <meta name="theme-color" content="#8fcdf4" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  </head>
+  <body>
+    <div id="sky"><div class="stars"></div></div>
+    <canvas id="scene" aria-label="클클 마을 3D 화면"></canvas>
+    <div id="labels"></div>
+
+    <div id="hud" hidden>
+      <div class="brand">
+        <img src="/favicon.svg" alt="" width="34" height="34" />
+        <span>클클 마을</span>
+      </div>
+      <div class="map-wrap">
+        <canvas id="minimap" aria-label="마을 지도"></canvas>
+        <button id="timeBtn" type="button"></button>
+      </div>
+      <div id="area" class="area-banner" aria-live="polite"></div>
+      <div id="prompt" class="prompt" hidden></div>
+      <div class="hint">
+        <span><kbd>WASD</kbd>·<kbd>방향키</kbd> 이동</span>
+        <span><kbd>Shift</kbd> 달리기</span>
+        <span><kbd>Space</kbd> 점프</span>
+        <span><kbd>E</kbd> 보기·쓰다듬기</span>
+        <span><kbd>휠</kbd> 확대·축소</span>
+      </div>
+      <div id="touch">
+        <div id="joy"><div id="joyKnob"></div></div>
+        <button id="btnJump" type="button">점프</button>
+        <button id="btnAction" type="button">E</button>
+      </div>
+    </div>
+
+    <div id="intro">
+      <section class="card">
+        <img class="logo" src="/favicon.svg" alt="" width="84" height="84" />
+        <h1>클클 마을</h1>
+        <p class="sub">CLCL TOWN</p>
+        <p class="desc">
+          구름 아래 작은 농장 마을이에요.<br />
+          이웃들의 농장을 돌아다니며 소, 돼지, 닭 친구들에게 인사해 보세요.
+        </p>
+        <ul class="chips">
+          <li class="kb"><kbd>WASD</kbd> 이동</li>
+          <li class="kb"><kbd>Shift</kbd> 달리기</li>
+          <li class="kb"><kbd>Space</kbd> 점프</li>
+          <li class="kb"><kbd>E</kbd> 보기·쓰다듬기</li>
+          <li class="kb">모바일은 화면 버튼</li>
+          <li class="tc">왼쪽 조이스틱으로 이동</li>
+          <li class="tc">끝까지 밀면 달리기</li>
+          <li class="tc"><kbd>E</kbd> 버튼으로 보기·쓰다듬기</li>
+        </ul>
+        <button id="startBtn" class="start" type="button" disabled>▶ 마을로 들어가기</button>
+        <p id="loadState" class="load">마을을 짓는 중…</p>
+        <label class="lite">
+          <input id="liteMode" type="checkbox" />
+          <span>⚡ 가벼운 모드 (그림자 끄기)</span>
+        </label>
+      </section>
+      <p class="copy">© 클클 마을</p>
+    </div>
+
+    <div id="dialog" hidden role="dialog" aria-modal="true">
+      <section class="card">
+        <div id="dialogBody"></div>
+        <button id="dialogClose" class="close" type="button">닫기</button>
+      </section>
+    </div>
+
+    <div id="toast" role="status"></div>
+
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
