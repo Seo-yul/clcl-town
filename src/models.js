@@ -42,7 +42,7 @@ function buildRig(key, spec) {
   const head = pivot(body, spec.headAt, geo(`${key}:head`, spec.head));
   const legGeo = geo(`${key}:leg`, spec.leg);
   const legs = spec.legsAt.map((p) => pivot(root, p, legGeo));
-  return { root, body, head, legs };
+  return { root, body, head, legs, bodyBase: 0 };
 }
 
 const EYE = '#1f1b1a';
@@ -284,6 +284,294 @@ const SPECS = {
 export function createAnimalRig(type, variant) {
   const colors = ANIMALS[type].variants[variant];
   return buildRig(`${type}/${variant}`, SPECS[type](colors));
+}
+
+// ---------------------------------------------------------------------------
+// Games the owners played together. Each game is a voxel character that lives
+// on the farm like an animal. Names, emoji, the E action and the speech lines
+// are what the UI shows. `react` is what the character does when the player
+// presses E: flip (card), flail (kraken), glance (agent), roll (die).
+// ---------------------------------------------------------------------------
+
+export const GAMES = {
+  holdem: {
+    name: '홀덤', emoji: '🃏', action: '홀덤 카드 뒤집기',
+    lines: ['체크', '콜!', '레이즈!', '올인!'],
+    speed: 1.0, radius: 0.5, bubbleY: 2.2, gait: 'waddle', react: 'flip',
+    variants: { spade: {} },
+  },
+  kraken: {
+    name: '노 터치 크라켄', emoji: '🐙', action: '크라켄 건드리기',
+    lines: ['건드리지 마!', '크아앙!', '보물은 없어~'],
+    speed: 0.7, radius: 0.9, bubbleY: 2.1, gait: 'tentacle', react: 'flail',
+    variants: { deep: {} },
+  },
+  codenames: {
+    name: '코드네임', emoji: '🕵️', action: '요원에게 말 걸기',
+    lines: ['쉿! 일급 비밀이야', '힌트는 한 단어뿐!', '암살자만은 안 돼!'],
+    speed: 1.2, radius: 0.4, bubbleY: 2.3, gait: 'walk', react: 'glance',
+    variants: { red: { tie: '#d63c3c' }, blue: { tie: '#2f6fd6' } },
+  },
+  lasvegas: {
+    name: '라스베가스', emoji: '🎲', action: '주사위 굴리기',
+    lines: ['잭팟!', '6 나와라!', '카지노로 가자!'],
+    speed: 1.3, radius: 0.45, bubbleY: 1.6, gait: 'bounce', react: 'roll',
+    variants: { red: {} },
+  },
+};
+
+/** Animal or game definition for a critter type. */
+export function critterDef(type) {
+  return ANIMALS[type] || GAMES[type];
+}
+
+/** Draws pixel art rows ('#' = filled) as thin boxes on the z plane, one box per run. */
+function pixels(v, rows, left, top, z, size, color, depth = 0.02) {
+  rows.forEach((row, r) => {
+    let start = -1;
+    for (let c = 0; c <= row.length; c++) {
+      const on = row[c] === '#';
+      if (on && start < 0) start = c;
+      if (!on && start >= 0) {
+        const w = (c - start) * size;
+        v.box(left + start * size + w / 2, top - (r + 1) * size, z, w, size, depth, color);
+        start = -1;
+      }
+    }
+  });
+}
+
+const SPADE = [
+  '....#....',
+  '...###...',
+  '..#####..',
+  '.#######.',
+  '#########',
+  '#########',
+  '.##.#.##.',
+  '....#....',
+  '...###...',
+];
+const LETTER_A = ['.#.', '#.#', '###', '#.#'];
+
+function rigOf(body, head, legs, bodyBase = 0) {
+  const root = new THREE.Group();
+  root.add(body);
+  body.position.y = bodyBase;
+  for (const leg of legs) if (!leg.parent) root.add(leg);
+  return { root, body, head, legs, bodyBase };
+}
+
+/** 홀덤: a standing playing card (ace of spades) with a face, stick arms and red shoes. */
+function holdemRig() {
+  const C = {
+    face: '#fbf8ef', back: '#c83a3f', backLine: '#f6e7d2', ink: '#24212c',
+    blush: '#f4a3a3', glove: '#ffffff', shoe: '#d2423f', shine: '#ffffff',
+  };
+  const body = new THREE.Group();
+  body.add(mesh(geo('game:holdem:body', (v) => {
+    // the card, with clipped corners
+    v.box(0, 0.32, 0, 0.9, 1.22, 0.1, C.face);
+    v.box(0, 0.28, 0, 0.8, 1.3, 0.1, C.face);
+    // red back with a white frame and a diamond
+    const bz = -0.061;
+    v.box(0, 0.36, bz, 0.78, 1.14, 0.02, C.back);
+    v.box(0, 1.42, bz - 0.012, 0.64, 0.04, 0.02, C.backLine);
+    v.box(0, 0.42, bz - 0.012, 0.64, 0.04, 0.02, C.backLine);
+    mirror((s) => v.box(s * 0.3, 0.42, bz - 0.012, 0.04, 1.04, 0.02, C.backLine));
+    v.box(0, 0.93, bz - 0.012, 0.28, 0.28, 0.02, C.backLine, { rz: Math.PI / 4, center: true });
+    v.box(0, 0.93, bz - 0.022, 0.15, 0.15, 0.02, C.back, { rz: Math.PI / 4, center: true });
+    // front: corner indices, the big spade, and a face
+    const fz = 0.061;
+    pixels(v, LETTER_A, -0.37, 1.52, fz, 0.045, C.ink);
+    v.box(-0.305, 1.27, fz, 0.08, 0.08, 0.02, C.ink, { rz: Math.PI / 4, center: true });
+    v.box(-0.305, 1.18, fz, 0.03, 0.06, 0.02, C.ink);
+    pixels(v, [...LETTER_A].reverse(), 0.235, 0.52, fz, 0.045, C.ink);
+    v.box(0.305, 0.6, fz, 0.08, 0.08, 0.02, C.ink, { rz: Math.PI / 4, center: true });
+    v.box(0.305, 0.64, fz, 0.03, 0.06, 0.02, C.ink);
+    pixels(v, SPADE, -0.2475, 0.98, fz, 0.055, C.ink);
+    mirror((s) => {
+      v.box(s * 0.15, 1.08, fz, 0.09, 0.13, 0.02, C.ink);
+      v.box(s * 0.15 + 0.02, 1.16, fz + 0.012, 0.03, 0.03, 0.01, C.shine);
+      v.box(s * 0.27, 1.05, fz, 0.1, 0.05, 0.02, C.blush);
+      // stick arms with white gloves
+      v.box(s * 0.53, 0.84, 0, 0.06, 0.3, 0.06, C.ink, { rz: s * 0.58, center: true });
+      v.box(s * 0.61, 0.71, 0, 0.13, 0.12, 0.12, C.glove, { center: true });
+    });
+    v.box(0, 1.02, fz, 0.08, 0.03, 0.02, C.ink);
+  })));
+  const head = new THREE.Group();
+  head.position.set(0, 1.2, 0);
+  body.add(head);
+  const legGeo = geo('game:holdem:leg', (v) => {
+    v.box(0, -0.28, 0, 0.07, 0.3, 0.07, C.ink);
+    v.box(0, -0.3, 0.03, 0.14, 0.08, 0.2, C.shoe);
+  });
+  const legs = [-1, 1].map((s) => {
+    const p = new THREE.Group();
+    p.position.set(s * 0.18, 0.3, 0);
+    p.add(mesh(legGeo));
+    return p;
+  });
+  return rigOf(body, head, legs);
+}
+
+/** 노 터치 크라켄: a spotted teal kraken with big orange slit eyes and six curling tentacles. */
+function krakenRig() {
+  const K = {
+    skin: '#4fae9b', dark: '#3f9786', spot: '#2e7d6e', arm: '#57a462', sucker: '#cfe39a',
+    eye: '#f39a2b', rim: '#c75a1a', pupil: '#3a160c', shine: '#fff4d6', brow: '#1f4a40',
+  };
+  const body = new THREE.Group();
+  body.add(mesh(geo('game:kraken:base', (v) => {
+    v.box(0, 0.14, 0, 0.8, 0.34, 0.76, K.dark);
+  })));
+  const head = new THREE.Group();
+  head.position.set(0, 0.46, 0);
+  body.add(head);
+  head.add(mesh(geo('game:kraken:head', (v) => {
+    // mantle, leaning back like an octopus
+    v.box(0, 0, 0, 0.92, 0.5, 0.86, K.skin);
+    v.box(0, 0.5, -0.06, 0.8, 0.26, 0.74, K.skin);
+    v.box(0, 0.76, -0.12, 0.6, 0.16, 0.56, K.skin);
+    v.box(0, 0.92, -0.16, 0.36, 0.08, 0.34, K.skin);
+    // spots
+    v.box(0.22, 0.92, 0.05, 0.1, 0.02, 0.1, K.spot);
+    v.box(-0.2, 0.92, -0.3, 0.12, 0.02, 0.1, K.spot);
+    v.box(0.1, 0.76, 0.24, 0.12, 0.02, 0.08, K.spot);
+    v.box(0.35, 0.76, -0.1, 0.08, 0.02, 0.12, K.spot);
+    v.box(-0.33, 0.76, 0.0, 0.06, 0.02, 0.1, K.spot);
+    mirror((s) => {
+      v.box(s * 0.465, 0.12, -0.1, 0.02, 0.12, 0.14, K.spot);
+      v.box(s * 0.465, 0.3, 0.2, 0.02, 0.1, 0.1, K.spot);
+      v.box(s * 0.405, 0.58, -0.2, 0.02, 0.1, 0.12, K.spot);
+      // big orange eyes with slit pupils and grumpy brows
+      v.box(s * 0.21, 0.06, 0.435, 0.34, 0.32, 0.02, K.rim);
+      v.box(s * 0.21, 0.09, 0.445, 0.28, 0.27, 0.02, K.eye);
+      v.box(s * 0.21, 0.11, 0.455, 0.06, 0.23, 0.02, K.pupil);
+      v.box(s * 0.21 + 0.08, 0.28, 0.462, 0.06, 0.06, 0.02, K.shine);
+      v.box(s * 0.21, 0.43, 0.445, 0.3, 0.05, 0.03, K.brow, { rz: s * 0.3, center: true });
+    });
+  })));
+  const armGeo = geo('game:kraken:arm', (v) => {
+    v.box(0, -0.2, 0.12, 0.2, 0.2, 0.3, K.arm);
+    v.box(0, -0.24, 0.38, 0.17, 0.17, 0.26, K.arm);
+    v.box(0, -0.25, 0.6, 0.14, 0.14, 0.2, K.arm);
+    v.box(0, -0.16, 0.74, 0.12, 0.22, 0.12, K.arm);
+    v.box(0, 0.0, 0.66, 0.1, 0.1, 0.12, K.arm);
+    v.box(0, -0.005, 0.12, 0.08, 0.02, 0.08, K.sucker);
+    v.box(0, -0.075, 0.4, 0.07, 0.02, 0.07, K.sucker);
+    v.box(0, -0.115, 0.6, 0.06, 0.02, 0.06, K.sucker);
+    v.box(0, -0.12, 0.675, 0.08, 0.14, 0.02, K.sucker);
+  });
+  const legs = [];
+  const roots = [];
+  for (let i = 0; i < 6; i++) {
+    const a = (i / 6) * Math.PI * 2 + Math.PI / 6;
+    const o = new THREE.Group();
+    o.position.set(Math.sin(a) * 0.3, 0.26, Math.cos(a) * 0.3);
+    o.rotation.y = a;
+    const p = new THREE.Group();
+    p.add(mesh(armGeo));
+    o.add(p);
+    roots.push(o);
+    legs.push(p);
+  }
+  const rig = rigOf(body, head, roots);
+  rig.legs = legs;
+  return rig;
+}
+
+/** 코드네임: a secret agent in a black suit and sunglasses, with a red or blue team tie. */
+function codenamesRig(c) {
+  const A = {
+    suit: '#26252d', shirt: '#f4f1ea', skin: '#f2c9a5', hair: '#1d1a1f',
+    glasses: '#121116', lens: '#5b6070', shoe: '#141318', mouth: '#9a5a4a', tie: c.tie,
+  };
+  const key = `game:codenames:${c.tie}`;
+  const body = new THREE.Group();
+  body.add(mesh(geo(`${key}:body`, (v) => {
+    v.box(0, 0.5, 0, 0.5, 0.62, 0.3, A.suit);
+    v.box(0, 0.88, 0.151, 0.16, 0.24, 0.01, A.shirt);
+    v.box(0, 0.74, 0.158, 0.06, 0.34, 0.01, A.tie);
+    mirror((s) => {
+      v.box(s * 0.07, 1.05, 0.158, 0.06, 0.06, 0.01, A.shirt);
+      v.box(s * 0.3, 0.78, 0, 0.12, 0.34, 0.22, A.suit);
+      v.box(s * 0.22, 0.8, 0.27, 0.08, 0.1, 0.04, A.skin);
+    });
+    // arms crossed over the chest, like the agents on the box
+    v.box(0, 0.78, 0.2, 0.54, 0.14, 0.12, A.suit);
+  })));
+  const head = new THREE.Group();
+  head.position.set(0, 1.12, 0);
+  body.add(head);
+  head.add(mesh(geo(`${key}:head`, (v) => {
+    v.box(0, 0, 0, 0.4, 0.4, 0.36, A.skin);
+    v.box(0, 0.34, -0.02, 0.42, 0.1, 0.4, A.hair);
+    v.box(0, 0.12, -0.18, 0.42, 0.28, 0.06, A.hair);
+    mirror((s) => {
+      v.box(s * 0.205, 0.2, -0.05, 0.03, 0.18, 0.26, A.hair);
+      v.box(s * 0.1, 0.22, 0.197, 0.04, 0.02, 0.01, A.lens);
+    });
+    v.box(0, 0.16, 0.185, 0.38, 0.1, 0.02, A.glasses);
+    v.box(0, 0.06, 0.185, 0.09, 0.025, 0.01, A.mouth);
+  })));
+  const legGeo = geo(`${key}:leg`, (v) => {
+    v.box(0, -0.5, 0.03, 0.18, 0.08, 0.26, A.shoe);
+    v.box(0, -0.44, 0, 0.16, 0.44, 0.18, A.suit);
+  });
+  const legs = [-1, 1].map((s) => {
+    const p = new THREE.Group();
+    p.position.set(s * 0.12, 0.5, 0);
+    p.add(mesh(legGeo));
+    return p;
+  });
+  return rigOf(body, head, legs);
+}
+
+/** 라스베가스: a red casino die with white pips and a face, hopping around. */
+function lasvegasRig() {
+  const D = { die: '#d8303a', pip: '#fdf6ec', pupil: '#2a1a1e', mouth: '#7a1a22' };
+  const body = new THREE.Group();
+  const s = 0.35;
+  body.add(mesh(geo('game:lasvegas:die', (v) => {
+    const C = { center: true };
+    v.box(0, 0, 0, 0.7, 0.62, 0.62, D.die, C);
+    v.box(0, 0, 0, 0.62, 0.7, 0.62, D.die, C);
+    v.box(0, 0, 0, 0.62, 0.62, 0.7, D.die, C);
+    const pip = (x, y, z, axis) => {
+      const size = [0.11, 0.11, 0.11];
+      size['xyz'.indexOf(axis)] = 0.02;
+      v.box(x, y, z, size[0], size[1], size[2], D.pip, C);
+    };
+    // top: five
+    for (const [x, z] of [[-0.17, -0.17], [0.17, -0.17], [0, 0], [-0.17, 0.17], [0.17, 0.17]]) pip(x, s + 0.005, z, 'y');
+    // right: three, left: four, back: six, bottom: two
+    for (const [y, z] of [[0.17, -0.17], [0, 0], [-0.17, 0.17]]) pip(s + 0.005, y, z, 'x');
+    for (const [y, z] of [[0.17, -0.17], [0.17, 0.17], [-0.17, -0.17], [-0.17, 0.17]]) pip(-s - 0.005, y, z, 'x');
+    for (const [x, y] of [[-0.17, 0.17], [0.17, 0.17], [-0.17, 0], [0.17, 0], [-0.17, -0.17], [0.17, -0.17]]) pip(x, y, -s - 0.005, 'z');
+    for (const [x, z] of [[-0.17, -0.17], [0.17, 0.17]]) pip(x, -s - 0.005, z, 'y');
+    // front: a face, two pips for eyes
+    mirror((m) => {
+      v.box(m * 0.15, 0.08, s + 0.005, 0.13, 0.13, 0.02, D.pip, C);
+      v.box(m * 0.15, 0.06, s + 0.017, 0.06, 0.08, 0.01, D.pupil, C);
+    });
+    v.box(0, -0.13, s + 0.005, 0.14, 0.04, 0.02, D.mouth, C);
+  })));
+  const head = new THREE.Group();
+  body.add(head);
+  return rigOf(body, head, [], s);
+}
+
+const GAME_RIGS = { holdem: holdemRig, kraken: krakenRig, codenames: codenamesRig, lasvegas: lasvegasRig };
+
+/** Rig for an animal or a game character. Games ignore missing variants. */
+export function createCritterRig(type, variant) {
+  if (GAME_RIGS[type]) {
+    const variants = GAMES[type].variants;
+    return GAME_RIGS[type](variants[variant] || Object.values(variants)[0]);
+  }
+  return createAnimalRig(type, variant);
 }
 
 // ---------------------------------------------------------------------------

@@ -710,6 +710,10 @@ body.touch .chips .tc {
   background: #fff;
 }
 
+.animals.games {
+  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+}
+
 .animals .emoji {
   font-size: 22px;
 }

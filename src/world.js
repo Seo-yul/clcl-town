@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { Voxels, textTexture, voxelMaterial } from './voxel.js';
 import { makeRng } from './rng.js';
-import { ANIMALS, addTree, addFlower, FLOWER_COLORS, createMascot } from './models.js';
+import { ANIMALS, GAMES, addTree, addFlower, FLOWER_COLORS, createMascot } from './models.js';
 import { Animal, separate } from './animals.js';
 
 export const CELL = 30; // one grid cell: plot + half a road on each side
@@ -76,8 +76,36 @@ function layout(n) {
 
 // ---------------------------------------------------------------------------
 
-export function buildWorld(scene, owners, { seed, shuffle, animalsPerFarm = 1 }) {
+/**
+ * Counts each owner's games from the play records: owner -> [{ type, count }],
+ * in the order of the GAMES catalogue. Unknown games or names are reported once.
+ */
+function gamesByOwner(plays, owners) {
+  const known = new Set(owners);
+  const byOwner = new Map();
+  for (const { game, players } of plays) {
+    if (!GAMES[game]) {
+      console.warn(`[클클 마을] 모르는 게임: ${game}`);
+      continue;
+    }
+    for (const name of players) {
+      if (!known.has(name)) console.warn(`[클클 마을] ${game} 기록의 '${name}' 은 농장 주인 명단에 없다.`);
+      if (!byOwner.has(name)) byOwner.set(name, new Map());
+      const counts = byOwner.get(name);
+      counts.set(game, (counts.get(game) || 0) + 1);
+    }
+  }
+  const order = Object.keys(GAMES);
+  const result = new Map();
+  for (const [name, counts] of byOwner) {
+    result.set(name, order.filter((k) => counts.has(k)).map((type) => ({ type, count: counts.get(type) })));
+  }
+  return result;
+}
+
+export function buildWorld(scene, owners, { seed, shuffle, animalsPerFarm = 1, plays = [] }) {
   const L = layout(owners.length);
+  const ownerGames = gamesByOwner(plays, owners);
   const W = L.cols * CELL;
   const D = L.rows * CELL;
   const colliders = [];
@@ -169,7 +197,7 @@ export function buildWorld(scene, owners, { seed, shuffle, animalsPerFarm = 1 })
   owners.forEach((owner, i) => {
     const cell = L.farmCells[i];
     const rng = makeRng(shuffle ? `${seed}|${owner}|${Math.random()}` : `${seed}|${owner}`);
-    const farm = buildFarm(scene, cell, owner, i, rng, addCollider, animalsPerFarm);
+    const farm = buildFarm(scene, cell, owner, i, rng, addCollider, animalsPerFarm, ownerGames.get(owner) || []);
     farms.push(farm);
     for (const a of farm.animals) {
       scene.add(a.object);
@@ -261,7 +289,7 @@ function pickAnimals(rng, count) {
   return [...byType.values()];
 }
 
-function buildFarm(scene, cell, owner, index, rng, addCollider, animalCount) {
+function buildFarm(scene, cell, owner, index, rng, addCollider, animalCount, games) {
   const cx = cell.x;
   const cz = cell.z;
   const v = new Voxels();
@@ -348,18 +376,30 @@ function buildFarm(scene, cell, owner, index, rng, addCollider, animalCount) {
   const tallMaterial = voxelMaterial.clone();
   scene.add(tall.mesh(tallMaterial));
 
-  // animals
+  // Farms whose owner played games together keep one character per game played
+  // instead of animals. Other farms get random animals.
   const home = { pasture: { minX: cx - 9.6, maxX: cx + 9.6, minZ: cz - 1.4, maxZ: cz + 9.6 } };
-  const herd = pickAnimals(rng, animalCount);
   const animals = [];
-  herd.forEach((h) => {
-    h.variants.forEach((variant, k) => {
-      animals.push(new Animal(h.type, variant, home, makeRng(`${owner}|${h.type}|${k}|${rng.next()}`)));
+  let herd = [];
+  if (games.length) {
+    for (const g of games) {
+      const variants = Object.keys(GAMES[g.type].variants);
+      for (let k = 0; k < g.count; k++) {
+        const r = makeRng(`${owner}|${g.type}|${k}`);
+        animals.push(new Animal(g.type, r.pick(variants), home, r));
+      }
+    }
+  } else {
+    herd = pickAnimals(rng, animalCount);
+    herd.forEach((h) => {
+      h.variants.forEach((variant, k) => {
+        animals.push(new Animal(h.type, variant, home, makeRng(`${owner}|${h.type}|${k}|${rng.next()}`)));
+      });
     });
-  });
+  }
 
   return {
-    index, owner, cx, cz, accent, style, crop: CROPS[cropKey], cropKey, herd, animals, tallMaterial,
+    index, owner, cx, cz, accent, style, crop: CROPS[cropKey], cropKey, herd, games, animals, tallMaterial,
     labelAnchor: new THREE.Vector3(cx, 5.2, cz + 6),
     gate: { x: cx, z: cz + H + 3.6 },
   };

@@ -4,7 +4,6 @@ import { CONFIG, resolveOwners, guestbookReady } from './config.js';
 import { buildWorld } from './world.js';
 import { Player } from './player.js';
 import { Sky, TIMES, TIME_ORDER, timeForHour } from './sky.js';
-import { ANIMALS } from './models.js';
 import { Overlay, Minimap, Dialog, Prompt, toast, areaBanner, setupTouch } from './ui.js';
 
 const $ = (sel) => document.querySelector(sel);
@@ -77,7 +76,12 @@ async function fontsReady() {
 await fontsReady();
 
 const owners = resolveOwners();
-const world = buildWorld(scene, owners, { seed: CONFIG.seed, shuffle: CONFIG.shuffleEachVisit, animalsPerFarm: CONFIG.animalsPerFarm });
+const world = buildWorld(scene, owners, {
+  seed: CONFIG.seed,
+  shuffle: CONFIG.shuffleEachVisit,
+  animalsPerFarm: CONFIG.animalsPerFarm,
+  plays: CONFIG.plays,
+});
 const player = new Player();
 scene.add(player.object);
 player.teleport(world.spawn.x, world.spawn.z, Math.PI);
@@ -190,7 +194,7 @@ function promptText(f) {
   if (!f) return '';
   if (f.kind === 'farm') return `${f.farm.owner}의 농장 정보 보기`;
   if (f.kind === 'board') return '농장 안내판 보기';
-  if (f.kind === 'animal') return `${ANIMALS[f.animal.type].name} 쓰다듬기`;
+  if (f.kind === 'animal') return f.animal.actionLabel;
   return '';
 }
 
@@ -201,7 +205,7 @@ function interact() {
   else if (focus.kind === 'animal') {
     const a = focus.animal;
     a.pet(player.pos.x, player.pos.z);
-    overlay.bubble(a.object, `${ANIMALS[a.type].sound} ♥`, a.radius * 1.3 + 0.9);
+    overlay.bubble(a.object, a.petLine(), a.bubbleHeight);
   }
 }
 
@@ -256,7 +260,7 @@ function ambientChatter(dt) {
   const near = world.animals.filter((a) => Math.hypot(a.pos.x - player.pos.x, a.pos.z - player.pos.z) < 16);
   if (!near.length) return;
   const a = near[Math.floor(Math.random() * near.length)];
-  overlay.bubble(a.object, ANIMALS[a.type].sound, a.radius * 1.3 + 0.9, 1400);
+  overlay.bubble(a.object, a.chatterLine(), a.bubbleHeight, 1400);
 }
 
 // ---------------------------------------------------------------------------

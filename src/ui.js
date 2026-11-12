@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { ANIMALS } from './models.js';
+import { ANIMALS, GAMES } from './models.js';
 
 const $ = (sel) => document.querySelector(sel);
 const v3 = new THREE.Vector3();
@@ -8,11 +8,38 @@ function escapeHtml(s) {
   return String(s).replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
 }
 
-/** "🐮 소" for a single animal, "🐮 소 2" when there are several of one kind. */
+/**
+ * Short line for farm labels and the plaza board.
+ * Animal farms: "🐮 소" ("🐮 소 2" for several). Game farms: icons only, "🃏 🐙2 🕵️ 🎲".
+ */
 export function herdSummary(farm) {
+  if (farm.games.length) {
+    return farm.games.map((g) => `${GAMES[g.type].emoji}${g.count > 1 ? g.count : ''}`).join(' ');
+  }
   return farm.herd
     .map((h) => `${ANIMALS[h.type].emoji} ${ANIMALS[h.type].name}${h.count > 1 ? ` ${h.count}` : ''}`)
     .join(' · ');
+}
+
+/** Info window section: games played together, or the animals living on the farm. */
+function residentsSection(farm) {
+  if (farm.games.length) {
+    const games = farm.games
+      .map((g) => {
+        const d = GAMES[g.type];
+        return `<li><span class="emoji">${d.emoji}</span><span class="nm">${d.name}</span>${g.count > 1 ? `<span class="ct">${g.count}판</span>` : ''}</li>`;
+      })
+      .join('');
+    return `<h3>함께한 게임</h3><ul class="animals games">${games}</ul>`;
+  }
+  const animals = farm.herd
+    .map((h) => {
+      const a = ANIMALS[h.type];
+      return `<li><span class="emoji">${a.emoji}</span><span class="nm">${a.name}</span><span class="ct">${h.count}마리</span></li>`;
+    })
+    .join('');
+  const total = farm.herd.reduce((s, h) => s + h.count, 0);
+  return `<h3>함께 사는 동물 ${total}마리</h3><ul class="animals">${animals}</ul>`;
 }
 
 // ---------------------------------------------------------------------------
@@ -264,19 +291,11 @@ export class Dialog {
 
   /** Farm info. When `guestbook` (giscus settings) is given, the farm's guestbook is shown below. */
   farm(farm, guestbook = null) {
-    const animals = farm.herd
-      .map((h) => {
-        const a = ANIMALS[h.type];
-        return `<li><span class="emoji">${a.emoji}</span><span class="nm">${a.name}</span><span class="ct">${h.count}마리</span></li>`;
-      })
-      .join('');
-    const total = farm.herd.reduce((s, h) => s + h.count, 0);
     this.show(
       `<p class="kicker">농장 정보</p>
        <h2><b>${escapeHtml(farm.owner)}</b></h2>
        <p class="owner">농장 주인 · ${escapeHtml(farm.owner)}</p>
-       <h3>함께 사는 동물 ${total}마리</h3>
-       <ul class="animals">${animals}</ul>
+       ${residentsSection(farm)}
        <div class="facts">
          <span>${farm.crop.emoji} ${farm.crop.name} 밭</span>
          <span>🏠 ${farm.style.label}</span>

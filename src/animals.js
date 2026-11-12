@@ -1,4 +1,4 @@
-import { ANIMALS, createAnimalRig } from './models.js';
+import { critterDef, createCritterRig } from './models.js';
 
 const TAU = Math.PI * 2;
 
@@ -9,19 +9,23 @@ function wrapAngle(a) {
 }
 
 const LEG_PHASE_4 = [0, Math.PI, Math.PI, 0];
+
+function pickLine(lines) {
+  return lines[Math.floor(Math.random() * lines.length)];
+}
 const LEG_PHASE_2 = [0, Math.PI];
 
 /**
- * A farm animal that wanders inside its pasture rectangle.
+ * A farm animal or game character that wanders inside its pasture rectangle.
  * States: idle (sometimes grazing or pecking) and walk (toward a random target).
  */
 export class Animal {
   constructor(type, variant, home, rng) {
     this.type = type;
-    this.def = ANIMALS[type];
+    this.def = critterDef(type);
     this.home = home; // { pasture: {minX,maxX,minZ,maxZ}, swim?: bool }
     this.rng = rng;
-    this.rig = createAnimalRig(type, variant);
+    this.rig = createCritterRig(type, variant);
     this.object = this.rig.root;
     this.pos = this.object.position;
     this.radius = this.def.radius;
@@ -40,7 +44,28 @@ export class Animal {
     this.grazing = false;
     this.lookYaw = 0;
     this.joy = 0;
-    this.legPhase = this.rig.legs.length === 4 ? LEG_PHASE_4 : LEG_PHASE_2;
+    const n = this.rig.legs.length;
+    this.legPhase = n === 4 ? LEG_PHASE_4 : n === 2 ? LEG_PHASE_2 : this.rig.legs.map((_, i) => (i / n) * TAU);
+  }
+
+  /** Text for the E prompt, e.g. "소 쓰다듬기" or a game's own action. */
+  get actionLabel() {
+    return this.def.action || `${this.def.name} 쓰다듬기`;
+  }
+
+  /** Height of speech bubbles above the critter. */
+  get bubbleHeight() {
+    return this.def.bubbleY ?? this.radius * 1.3 + 0.9;
+  }
+
+  /** What the critter says when the player presses E. */
+  petLine() {
+    return this.def.lines ? pickLine(this.def.lines) : `${this.def.sound} ♥`;
+  }
+
+  /** What the critter says on its own. */
+  chatterLine() {
+    return this.def.lines ? pickLine(this.def.lines) : this.def.sound;
   }
 
   pickTarget() {
@@ -108,18 +133,33 @@ export class Animal {
     this.move += (moving - this.move) * Math.min(1, dt * 6);
     this.walkT += dt * this.speed * 7 * this.move;
     const legs = this.rig.legs;
+    const body = this.rig.body;
     const swing = Math.sin(this.walkT);
+    const gait = this.def.gait;
+    const joy = this.joy;
 
     let hop = 0;
-    if (this.def.gait === 'hop') {
+    if (gait === 'hop') {
       hop = Math.abs(Math.sin(this.walkT * 0.6)) * 0.28 * this.move;
       for (let i = 0; i < legs.length; i++) legs[i].rotation.x = (i < 2 ? -1 : 1) * hop * 1.2;
+    } else if (gait === 'tentacle') {
+      // Tentacles stay a little lifted and curl in a wave; faster and wilder when touched.
+      const flail = this.def.react === 'flail' ? joy : 0;
+      const amp = 0.16 + 0.16 * this.move + 0.5 * flail;
+      const speed = 2.4 + 3 * this.move + 12 * flail;
+      for (let i = 0; i < legs.length; i++) {
+        legs[i].rotation.x = -0.08 - amp * (0.5 + 0.5 * Math.sin(t * speed + this.legPhase[i] + this.walkT));
+      }
+    } else if (gait === 'bounce') {
+      hop = Math.abs(Math.sin(this.walkT * 0.9)) * 0.32 * this.move + Math.abs(Math.sin(t * 2.2 + this.walkT)) * 0.05;
     } else {
       for (let i = 0; i < legs.length; i++) {
         legs[i].rotation.x = Math.sin(this.walkT + this.legPhase[i]) * 0.55 * this.move;
       }
     }
-    this.rig.body.position.y = Math.abs(swing) * 0.03 * this.move;
+    body.position.y = this.rig.bodyBase + Math.abs(swing) * 0.03 * this.move;
+    if (gait === 'waddle') body.rotation.z = swing * 0.1 * this.move;
+    if (gait === 'tentacle') this.rig.head.position.y = 0.46 + Math.sin(t * 2 + this.walkT) * 0.03;
 
     // Look at the player when they come close.
     let wantYaw = 0;
@@ -138,12 +178,20 @@ export class Animal {
       else pitch = 0.75;
     }
     this.graze += (pitch - this.graze) * Math.min(1, dt * (this.def.pecks ? 14 : 3));
-    this.rig.head.rotation.set(this.graze, this.lookYaw, 0);
+    let glance = 0;
+    if (this.def.react === 'glance' && joy > 0) glance = Math.sin((1 - joy) * TAU * 2) * 0.9 * Math.min(1, joy * 3);
+    this.rig.head.rotation.set(this.graze, this.lookYaw + glance, 0);
 
-    // A happy little jump after being petted.
+    // After E: animals and most characters jump; the card flips, the die rolls, the kraken shakes.
     if (this.joy > 0) {
       this.joy = Math.max(0, this.joy - dt * 1.4);
-      hop = Math.max(hop, Math.abs(Math.sin(this.joy * Math.PI * 3)) * 0.35 * this.joy);
+      const k = 1 - this.joy;
+      const turn = k * k * (3 - 2 * k) * TAU;
+      const react = this.def.react;
+      if (react !== 'glance') hop = Math.max(hop, Math.abs(Math.sin(this.joy * Math.PI * 3)) * 0.35 * this.joy);
+      if (react === 'flip') body.rotation.y = this.joy > 0 ? turn : 0;
+      if (react === 'roll') body.rotation.x = this.joy > 0 ? turn : 0;
+      if (react === 'flail') body.rotation.z = Math.sin(t * 38) * 0.12 * this.joy;
     }
     this.pos.y = (this.home.swim ? -0.06 + Math.sin(t * 2 + this.walkT) * 0.02 : 0) + hop;
   }
