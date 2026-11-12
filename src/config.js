@@ -5,7 +5,8 @@ export const CONFIG = {
 
   // 농장 주인 이름이다. 앞에 있는 이름일수록 광장에 가까운 구획을 받는다.
   // 이름 수에 맞춰 구획 수와 마을 크기가 자동으로 정해진다.
-  // 주소 뒤에 ?owners=이름1,이름2,이름3 을 붙이면 이 목록 대신 그 이름들을 쓴다.
+  // 로컬 개발 화면(npm run dev)에서는 주소 뒤에 ?owners=이름1,이름2,이름3 을 붙이면 이 목록 대신 그 이름들을 쓴다.
+  // 배포된 사이트에서는 ?owners= 를 무시한다.
   owners: [
     '윤서율', '강형준', '김기석', '김동욱', '김보겸',
     '박도연', '박세현', '박은서', '신웅비', '신준수',
@@ -47,10 +48,14 @@ export function guestbookReady() {
 }
 
 export function resolveOwners() {
-  const param = new URLSearchParams(location.search).get('owners');
-  if (param) {
-    const list = param.split(',').map((s) => s.trim()).filter(Boolean);
-    if (list.length) return list.slice(0, 48);
+  // ?owners= 는 개발 화면에서만 받는다. 배포된 사이트에서 받으면 누구나 우리 도메인으로
+  // 가짜 주인 이름이 보이는 링크를 만들 수 있고, 그 농장의 방명록 글이 저장소에 쌓인다.
+  if (import.meta.env.DEV) {
+    const param = new URLSearchParams(location.search).get('owners');
+    if (param) {
+      const list = param.split(',').map((s) => s.trim()).filter(Boolean);
+      if (list.length) return list.slice(0, 48);
+    }
   }
   return CONFIG.owners;
 }

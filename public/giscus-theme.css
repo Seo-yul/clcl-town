@@ -148,9 +148,9 @@ main .gsc-left-header h4 {
   font-size: 13px;
 }
 
+/* 댓글 수 옆의 "– Powered by giscus" 문구는 보여 주지 않는다. giscus 는 README 에 적어 둔다. */
 main .gsc-left-header em {
-  font-style: normal;
-  font-size: 12px;
+  display: none;
 }
 
 /* 버튼은 마을 창의 동그란 버튼 모양을 따른다. */

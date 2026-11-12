@@ -32,11 +32,14 @@ https://seo-yul.github.io/clcl-town/ 으로 들어와도 이 주소로 넘어간
 owners: ['윤서율', '강형준', '김기석', /* ... */],
 ```
 
-코드를 고치지 않고 확인만 하려면 주소 뒤에 이름을 붙인다.
+코드를 고치지 않고 확인만 하려면 로컬 개발 화면(`npm run dev`)의 주소 뒤에 이름을 붙인다.
 
 ```
 http://localhost:5173/?owners=하늘,바다,구름이
 ```
+
+배포된 사이트에서는 `?owners=` 를 무시한다. 받아 주면 누구나 우리 도메인으로 가짜 주인 이름이 보이는 링크를 만들 수 있고,
+그 농장 방명록에 쓴 글이 이 저장소의 Discussions 에 쌓이기 때문이다.
 
 ## 동물이 정해지는 방식
 
@@ -101,4 +104,5 @@ http://localhost:5173/?owners=하늘,바다,구름이
 
 - [three.js](https://threejs.org/) 0.186.1
 - [Vite](https://vite.dev/) 8.3.5
+- [giscus](https://giscus.app/) 방명록. 방명록 테마(`public/giscus-theme.css`)는 giscus 의 light 테마를 바탕으로 만들었다.
 - [갈무리(Galmuri)](https://galmuri.quiple.dev/) 픽셀 글꼴. SIL Open Font License 1.1 을 따르며 라이선스 전문은 `public/fonts/OFL.md` 에 있다.
