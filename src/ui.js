@@ -315,10 +315,16 @@ export class Dialog {
  * The giscus iframe fetches it cross-origin from giscus.app, so it must be served
  * over https with CORS. Pages served over https (GitHub Pages) use their own copy;
  * local http dev servers can't be reached from giscus.app, so they use the deployed copy.
+ * `?v=` is a hash of the file (see vite.config.js) so CDN and browser caches never serve an old theme.
  */
 function guestbookTheme(cfg) {
-  if (location.protocol === 'https:') return new URL('giscus-theme.css', document.baseURI).href;
-  return cfg.deployedTheme || 'light';
+  const base = location.protocol === 'https:'
+    ? new URL('giscus-theme.css', document.baseURI).href
+    : cfg.deployedTheme;
+  if (!base) return 'light';
+  const url = new URL(base);
+  url.searchParams.set('v', __GISCUS_THEME_VERSION__);
+  return url.href;
 }
 
 /**
