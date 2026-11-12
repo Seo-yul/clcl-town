@@ -26,10 +26,9 @@ export const CONFIG = {
   plays: [
     { game: 'holdem', players: ['윤서율', '윤서영', '박도연', '이주원', '박세현'] },
     { game: 'kraken', players: ['윤서율', '윤서영', '박도연', '이주원', '박세현'] },
-    { game: 'kraken', players: ['윤서율', '김동욱', '정장우', '조승아', '이서영', '고태현'] },
-    { game: 'codenames', players: ['윤서율', '김동욱', '정장우', '조승아', '이서영', '고태현'] },
-    { game: 'lasvegas', players: ['윤서율', '김동욱', '정장우', '조승아', '이서영', '고태현'] },
-    { game: 'kraken', players: ['박도연'] },
+    { game: 'kraken', players: ['윤서율', '김동욱', '정장우', '조승아', '이서영', '고태현', '박도연'] },
+    { game: 'codenames', players: ['윤서율', '김동욱', '정장우', '조승아', '이서영', '고태현', '박도연'] },
+    { game: 'lasvegas', players: ['윤서율', '김동욱', '정장우', '조승아', '이서영', '고태현', '박도연'] },
   ],
 
   // false 이면 같은 이름은 항상 같은 동물과 같은 농장 모습을 가진다.
