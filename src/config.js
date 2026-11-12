@@ -30,7 +30,7 @@ export const CONFIG = {
     repo: 'Seo-yul/clcl-town',
     repoId: 'R_kgDOVr8-9Q',
     category: '방명록',
-    categoryId: '',
+    categoryId: 'DIC_kwDOVr8-9c4DK-pD',
     // giscus 는 이 제목으로 농장의 방명록 글을 찾는다.
     // 방명록에 글이 달린 뒤에 바꾸면 기존 글과 연결이 끊기므로 바꾸지 않는다.
     titleFormat: '{name}의 농장 방명록',
