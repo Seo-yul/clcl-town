@@ -318,7 +318,22 @@ export const GAMES = {
     speed: 1.3, radius: 0.45, bubbleY: 1.6, gait: 'bounce', react: 'roll',
     variants: { red: {} },
   },
+  // Murder mystery series: silent strangers. They only ever answer "...".
+  wendy: { name: '웬디, 어른이 되렴', emoji: '🤖', ...mystery(0.35, 2.0) },
+  bluemoon: { name: '몇 번이고 푸른 달에 불을 붙였다', emoji: '🌙', ...mystery(0.35, 2.1) },
+  werewolf: { name: '늑대인간 마을의 축제', emoji: '🐺', ...mystery(0.45, 2.2) },
+  eida: { name: '에이다', emoji: '👑', ...mystery(0.42, 2.35) },
+  giantbird: { name: '괴조는 깊은 탄식의 끝에', emoji: '🦅', ...mystery(0.55, 2.4) },
+  hero: { name: '용사가 죽었다', emoji: '⚔️', ...mystery(0.42, 2.3) },
+  suspect: { name: '서스펙트 게임: 클로즈드 서클 미스터리', emoji: '🔍', ...mystery(0.42, 2.25) },
 };
+
+function mystery(radius, bubbleY) {
+  return {
+    series: 'mystery', action: '수상한 인물에게 말 걸기', lines: ['...'],
+    speed: 0.9, radius, bubbleY, gait: 'walk', react: 'glance', variants: { one: {} },
+  };
+}
 
 // The club's own character: every owner is a member of 클라우드 클럽 (CLCL) and
 // gets one little cloud on their farm. It is not a game, so it is listed apart.
@@ -607,8 +622,312 @@ function cloudRig() {
   return rigOf(body, head, [], 0.45);
 }
 
+// ---------------------------------------------------------------------------
+// Murder mystery characters, each based on its game's cover art.
+// ---------------------------------------------------------------------------
+
+const twoLegs = (x, y) => [[-x, y, 0], [x, y, 0]];
+
+/** 웬디, 어른이 되렴: an android girl with blunt black bangs over her eyes and a red drip from the missing left eye. */
+function wendyRig() {
+  const C = {
+    hair: '#141012', skin: '#f6e6d6', dress: '#1d1411', crimson: '#c5072f', lime: '#a2c489',
+    drip: '#d01f3c', mouth: '#9b3a3a',
+  };
+  return buildRig('mystery:wendy', {
+    legsAt: twoLegs(0.1, 0.4),
+    leg: (v) => {
+      v.box(0, -0.4, 0, 0.12, 0.4, 0.14, C.dress);
+      v.box(0, -0.4, 0.03, 0.14, 0.08, 0.2, C.crimson);
+    },
+    body: (v) => {
+      v.box(0, 0.36, 0, 0.5, 0.26, 0.38, C.dress);
+      v.box(-0.13, 0.355, 0, 0.255, 0.27, 0.39, C.crimson);
+      v.box(0, 0.6, 0, 0.38, 0.36, 0.26, C.dress);
+      v.box(0, 0.9, 0.135, 0.2, 0.06, 0.02, C.crimson);
+      v.box(0, 0.8, 0.135, 0.06, 0.06, 0.02, C.lime);
+      mirror((s) => {
+        v.box(s * 0.24, 0.62, 0, 0.1, 0.3, 0.12, C.dress);
+        v.box(s * 0.24, 0.55, 0, 0.09, 0.07, 0.1, C.skin);
+      });
+    },
+    headAt: [0, 0.96, 0],
+    head: (v) => {
+      v.box(0, 0, 0, 0.44, 0.42, 0.4, C.skin);
+      v.box(0, 0.36, -0.02, 0.48, 0.12, 0.44, C.hair);
+      v.box(0, -0.06, -0.21, 0.48, 0.5, 0.06, C.hair);
+      v.box(0, 0.2, 0.205, 0.46, 0.18, 0.04, C.hair);
+      mirror((s) => {
+        v.box(s * 0.225, 0.02, -0.03, 0.04, 0.4, 0.36, C.hair);
+        v.box(s * 0.27, -0.3, -0.02, 0.1, 0.42, 0.1, C.hair);
+        v.box(s * 0.27, 0.04, -0.02, 0.12, 0.05, 0.12, C.crimson);
+      });
+      v.box(0, 0.08, 0.205, 0.1, 0.025, 0.01, C.mouth);
+      v.box(0.1, 0.06, 0.205, 0.035, 0.14, 0.01, C.drip);
+      v.box(0.1, 0.01, 0.205, 0.05, 0.05, 0.01, C.drip);
+      v.box(0.1, -0.06, 0.205, 0.045, 0.045, 0.01, C.lime);
+    },
+  });
+}
+
+/** 몇 번이고 푸른 달에 불을 붙였다: the navy woodcut rose from the cover, walking on its stem. */
+function bluemoonRig() {
+  const C = { navy: '#13244b', light: '#506185', hatch: '#dfe4f0', stem: '#1b2d55' };
+  return buildRig('mystery:bluemoon', {
+    legsAt: twoLegs(0.09, 0.3),
+    leg: (v) => {
+      v.box(0, -0.3, 0, 0.08, 0.3, 0.08, C.stem);
+      v.box(0, -0.3, 0.02, 0.14, 0.06, 0.18, C.navy);
+    },
+    body: (v) => {
+      v.box(0, 0.28, 0, 0.12, 0.8, 0.12, C.stem);
+      mirror((s) => {
+        v.box(s * 0.2, 0.62, 0, 0.32, 0.12, 0.06, C.navy, { rz: s * 0.5, center: true });
+        v.box(s * 0.33, 0.74, 0, 0.16, 0.08, 0.05, C.light, { rz: s * 0.8, center: true });
+        v.box(s * 0.2, 0.62, 0.035, 0.22, 0.02, 0.01, C.hatch, { rz: s * 0.5, center: true });
+      });
+      v.box(0.08, 0.44, 0, 0.06, 0.04, 0.04, C.navy);
+      v.box(-0.08, 0.86, 0, 0.06, 0.04, 0.04, C.navy);
+      v.box(0.08, 0.98, 0, 0.05, 0.04, 0.04, C.navy);
+    },
+    headAt: [0, 1.06, 0],
+    head: (v) => {
+      v.box(0, 0, 0, 0.64, 0.34, 0.64, C.navy);
+      v.box(0, 0.04, 0, 0.62, 0.32, 0.62, C.light, { ry: Math.PI / 4 });
+      v.box(0, 0.3, 0, 0.46, 0.14, 0.46, C.navy, { ry: 0.3 });
+      v.box(0, 0.4, 0, 0.28, 0.12, 0.28, C.light, { ry: 1.0 });
+      v.box(0, 0.5, 0, 0.12, 0.08, 0.12, C.navy);
+      // white woodcut scratches
+      mirror((s) => {
+        v.box(s * 0.325, 0.1, 0.08, 0.02, 0.16, 0.03, C.hatch);
+        v.box(0.12 * s, 0.1, 0.325, 0.03, 0.18, 0.02, C.hatch);
+        v.box(s * 0.16, 0.44, 0.1, 0.12, 0.02, 0.02, C.hatch);
+      });
+      v.box(0, 0.12, -0.325, 0.2, 0.02, 0.02, C.hatch);
+    },
+  });
+}
+
+/** 늑대인간 마을의 축제: a cream werewolf in a crimson cape, holding the cover's faceted red decanter. */
+function werewolfRig() {
+  const C = {
+    fur: '#efe6cf', shade: '#d8cba9', pale: '#fbf6e6', crimson: '#a93631', dark: '#6d100d',
+    nose: '#2a1a18', eye: '#c8323c',
+  };
+  return buildRig('mystery:werewolf', {
+    legsAt: twoLegs(0.13, 0.42),
+    leg: (v) => {
+      v.box(0, -0.42, 0, 0.16, 0.42, 0.18, C.fur);
+      v.box(0, -0.42, 0.04, 0.18, 0.08, 0.24, C.shade);
+    },
+    body: (v) => {
+      v.box(0, 0.42, 0, 0.5, 0.56, 0.34, C.fur);
+      v.box(0, 0.62, 0.171, 0.24, 0.24, 0.02, C.pale);
+      v.box(0, 0.4, -0.19, 0.56, 0.62, 0.04, C.crimson);
+      v.box(0, 0.86, 0, 0.58, 0.14, 0.38, C.crimson);
+      v.box(0, 0.55, -0.32, 0.16, 0.16, 0.3, C.fur, { rx: 0.6, center: true });
+      mirror((s) => {
+        v.box(s * 0.31, 0.5, 0, 0.12, 0.4, 0.16, C.fur);
+        v.box(s * 0.31, 0.46, 0.02, 0.13, 0.05, 0.17, C.shade);
+      });
+      // faceted red decanter in the right paw
+      v.box(-0.33, 0.3, 0.16, 0.16, 0.14, 0.16, C.crimson, { ry: Math.PI / 4 });
+      v.box(-0.33, 0.44, 0.16, 0.06, 0.09, 0.06, C.crimson);
+      v.box(-0.33, 0.53, 0.16, 0.09, 0.08, 0.09, C.dark);
+    },
+    headAt: [0, 0.98, 0.02],
+    head: (v) => {
+      v.box(0, -0.06, -0.02, 0.52, 0.14, 0.46, C.shade);
+      v.box(0, 0, 0, 0.46, 0.4, 0.42, C.fur);
+      v.box(0, 0.02, 0.26, 0.24, 0.16, 0.18, C.pale);
+      v.box(0, 0.14, 0.35, 0.08, 0.05, 0.03, C.nose);
+      mirror((s) => {
+        v.box(s * 0.14, 0.38, -0.04, 0.1, 0.2, 0.08, C.fur);
+        v.box(s * 0.14, 0.41, 0.0, 0.05, 0.12, 0.01, C.crimson);
+        v.box(s * 0.11, 0.22, 0.212, 0.07, 0.05, 0.02, C.eye);
+      });
+    },
+  });
+}
+
+/** 에이다: the gentle smiling king from the portrait, long blond hair, red ermine cape and a gold scepter. */
+function eidaRig() {
+  const C = {
+    skin: '#f6d7b8', hair: '#f0d58a', gold: '#d4a53a', red: '#b3262e', gem: '#d6283a',
+    ermine: '#fbf8f2', fleck: '#222222', tunic: '#3f8f5a', hose: '#f2ebdc', boot: '#6b4430',
+    eye: '#5a3b2a', mouth: '#b5564a', blush: '#f2a7a0',
+  };
+  return buildRig('mystery:eida', {
+    legsAt: twoLegs(0.12, 0.42),
+    leg: (v) => {
+      v.box(0, -0.42, 0.03, 0.18, 0.14, 0.24, C.boot);
+      v.box(0, -0.28, 0, 0.16, 0.28, 0.18, C.hose);
+    },
+    body: (v) => {
+      v.box(0, 0.42, 0, 0.5, 0.58, 0.32, C.tunic);
+      v.box(0, 0.56, 0, 0.52, 0.06, 0.34, C.gold);
+      v.box(0, 0.36, -0.18, 0.6, 0.66, 0.05, C.red);
+      v.box(0, 0.34, -0.18, 0.62, 0.06, 0.07, C.ermine);
+      v.box(0, 0.92, 0, 0.62, 0.12, 0.4, C.ermine);
+      for (const x of [-0.18, 0, 0.18]) v.box(x, 0.96, 0.201, 0.03, 0.04, 0.01, C.fleck);
+      mirror((s) => {
+        v.box(s * 0.29, 0.36, -0.02, 0.05, 0.64, 0.3, C.red);
+        v.box(s * 0.3, 0.6, 0.02, 0.12, 0.36, 0.16, C.tunic);
+        v.box(s * 0.3, 0.53, 0.03, 0.11, 0.08, 0.12, C.skin);
+      });
+      // scepter in the right hand
+      v.box(-0.34, 0.3, 0.16, 0.05, 0.75, 0.05, C.gold);
+      v.box(-0.34, 1.05, 0.16, 0.12, 0.12, 0.12, C.gold);
+      v.box(-0.34, 1.08, 0.16, 0.06, 0.06, 0.13, C.gem);
+    },
+    headAt: [0, 1.0, 0],
+    head: (v) => {
+      v.box(0, 0, 0, 0.44, 0.42, 0.4, C.skin);
+      v.box(0, 0.36, -0.02, 0.48, 0.12, 0.44, C.hair);
+      v.box(0, -0.3, -0.21, 0.5, 0.72, 0.08, C.hair);
+      v.box(0, 0.3, 0.205, 0.44, 0.08, 0.03, C.hair);
+      mirror((s) => {
+        v.box(s * 0.23, -0.2, -0.04, 0.05, 0.58, 0.34, C.hair);
+        v.box(s * 0.1, 0.17, 0.205, 0.08, 0.025, 0.01, C.eye);
+        v.box(s * 0.16, 0.1, 0.205, 0.07, 0.04, 0.01, C.blush);
+        v.box(s * 0.16, 0.52, 0.17, 0.06, 0.1, 0.04, C.gold);
+      });
+      v.box(0, 0.07, 0.205, 0.08, 0.025, 0.01, C.mouth);
+      // crown
+      v.box(0, 0.48, 0, 0.34, 0.1, 0.3, C.red);
+      v.box(0, 0.44, 0, 0.42, 0.08, 0.38, C.gold);
+      v.box(0, 0.52, 0.17, 0.06, 0.14, 0.04, C.gold);
+      v.box(0, 0.46, 0.195, 0.06, 0.05, 0.01, C.gem);
+    },
+  });
+}
+
+/** 괴조는 깊은 탄식의 끝에: the pale grey giant bird of the cover, long feathers drooping to the ground. */
+function giantbirdRig() {
+  const C = {
+    feather: '#d6d2cf', light: '#ece9e6', shadow: '#8f8a86', dark: '#4a4644', talon: '#2a2826',
+    teal: '#3d5c4c',
+  };
+  return buildRig('mystery:giantbird', {
+    legsAt: twoLegs(0.14, 0.5),
+    leg: (v) => {
+      v.box(0, -0.5, 0, 0.08, 0.5, 0.08, C.talon);
+      v.box(0, -0.5, 0.06, 0.22, 0.05, 0.24, C.talon);
+      v.box(0, -0.5, -0.1, 0.06, 0.05, 0.12, C.talon);
+    },
+    body: (v) => {
+      v.box(0, 0.5, 0, 0.62, 0.6, 0.7, C.feather);
+      v.box(0, 0.62, -0.05, 0.7, 0.4, 0.62, C.feather);
+      v.box(0, 0.6, 0.351, 0.4, 0.42, 0.02, C.light);
+      v.box(0, 0.4, -0.5, 0.36, 0.08, 0.5, C.shadow, { rx: 0.4, center: true });
+      mirror((s) => {
+        v.box(s * 0.38, 0.32, -0.05, 0.1, 0.8, 0.6, C.feather);
+        v.box(s * 0.38, 0.12, -0.12, 0.08, 0.3, 0.42, C.shadow);
+        v.box(s * 0.38, 0.02, -0.24, 0.06, 0.2, 0.2, C.dark);
+        v.box(s * 0.381, 0.4, 0.12, 0.1, 0.5, 0.02, C.light);
+      });
+    },
+    headAt: [0, 1.1, 0.12],
+    head: (v) => {
+      v.box(0, 0, 0, 0.26, 0.3, 0.26, C.light);
+      v.box(0, 0.26, 0.04, 0.34, 0.3, 0.38, C.feather);
+      v.box(0, 0.5, -0.14, 0.12, 0.12, 0.3, C.shadow, { rx: -0.5, center: true });
+      v.box(0, 0.3, 0.3, 0.12, 0.1, 0.2, C.dark);
+      v.box(0, 0.24, 0.39, 0.08, 0.08, 0.06, C.dark);
+      mirror((s) => v.box(s * 0.171, 0.38, 0.12, 0.02, 0.07, 0.07, C.teal));
+    },
+  });
+}
+
+/** 용사가 죽었다: the cover's sepia hero, sword still stuck in his back, X for eyes. */
+function heroRig() {
+  const C = {
+    skin: '#e6dcc6', hair: '#2b2117', tunic: '#6e5a40', armor: '#8a7656', cloak: '#3a2e21',
+    pants: '#4a3b2a', boot: '#2a2018', steel: '#9c8f7a', hilt: '#2b2117', drip: '#1e0908', ink: '#2b2117',
+  };
+  const sword = { rx: -0.7, rz: -0.3, center: true };
+  return buildRig('mystery:hero', {
+    legsAt: twoLegs(0.12, 0.45),
+    leg: (v) => {
+      v.box(0, -0.45, 0, 0.16, 0.45, 0.18, C.pants);
+      v.box(0, -0.45, 0.03, 0.18, 0.16, 0.24, C.boot);
+    },
+    body: (v) => {
+      v.box(0, 0.45, 0, 0.5, 0.58, 0.32, C.tunic);
+      v.box(0, 0.58, 0, 0.52, 0.06, 0.34, C.boot);
+      v.box(0, 0.72, 0.161, 0.34, 0.26, 0.02, C.armor);
+      v.box(0, 0.32, -0.19, 0.58, 0.74, 0.05, C.cloak);
+      v.box(0, 0.94, -0.02, 0.6, 0.12, 0.38, C.cloak);
+      mirror((s) => {
+        v.box(s * 0.3, 0.6, 0, 0.12, 0.38, 0.16, C.tunic);
+        v.box(s * 0.3, 0.53, 0.01, 0.11, 0.08, 0.12, C.skin);
+      });
+      // the sword in his back, and what drips from it
+      v.box(0.12, 0.98, -0.36, 0.05, 0.5, 0.03, C.steel, sword);
+      v.box(0.177, 1.163, -0.521, 0.22, 0.05, 0.05, C.hilt, sword);
+      v.box(0.195, 1.221, -0.572, 0.05, 0.14, 0.05, C.hilt, sword);
+      v.box(0.215, 1.287, -0.63, 0.08, 0.08, 0.08, C.hilt, sword);
+      v.box(0.06, 0.55, -0.216, 0.04, 0.22, 0.01, C.drip);
+      v.box(0.12, 0.62, -0.216, 0.03, 0.14, 0.01, C.drip);
+    },
+    headAt: [0, 1.03, 0],
+    head: (v) => {
+      v.box(0, 0, 0, 0.44, 0.42, 0.4, C.skin);
+      v.box(0, 0.34, -0.02, 0.48, 0.14, 0.44, C.hair);
+      v.box(-0.12, 0.44, 0.05, 0.1, 0.08, 0.1, C.hair);
+      v.box(0.1, 0.46, -0.05, 0.1, 0.06, 0.1, C.hair);
+      v.box(0, 0.08, -0.21, 0.46, 0.3, 0.05, C.hair);
+      mirror((s) => {
+        v.box(s * 0.1, 0.19, 0.205, 0.1, 0.025, 0.01, C.ink, { rz: Math.PI / 4, center: true });
+        v.box(s * 0.1, 0.19, 0.205, 0.1, 0.025, 0.01, C.ink, { rz: -Math.PI / 4, center: true });
+      });
+      v.box(0, 0.07, 0.205, 0.1, 0.02, 0.01, C.ink);
+    },
+  });
+}
+
+/** 서스펙트 게임: a hooded suspect, face lost in shadow, edges lit by the cover's red and cyan neon. */
+function suspectRig() {
+  const C = {
+    hood: '#1d1e24', darker: '#121317', shadow: '#0b0b0e', jeans: '#24252c', shoe: '#111111',
+    string: '#d9d9df', eye: '#e9e6f0', red: '#d0402a', cyan: '#3fa0d8',
+  };
+  const neon = (s) => (s < 0 ? C.red : C.cyan);
+  return buildRig('mystery:suspect', {
+    legsAt: twoLegs(0.12, 0.45),
+    leg: (v) => {
+      v.box(0, -0.45, 0, 0.16, 0.45, 0.18, C.jeans);
+      v.box(0, -0.45, 0.03, 0.18, 0.1, 0.24, C.shoe);
+    },
+    body: (v) => {
+      v.box(0, 0.42, 0, 0.52, 0.62, 0.34, C.hood);
+      v.box(0, 0.5, 0.171, 0.32, 0.14, 0.02, C.darker);
+      mirror((s) => {
+        v.box(s * 0.262, 0.44, 0, 0.01, 0.58, 0.3, neon(s));
+        v.box(s * 0.3, 0.52, 0.02, 0.12, 0.46, 0.16, C.hood);
+        v.box(s * 0.361, 0.54, 0.02, 0.01, 0.42, 0.14, neon(s));
+        v.box(s * 0.06, 0.82, 0.171, 0.025, 0.16, 0.01, C.string);
+      });
+    },
+    headAt: [0, 1.04, 0],
+    head: (v) => {
+      v.box(0, 0, -0.06, 0.5, 0.5, 0.38, C.hood);
+      v.box(0, 0.05, 0.135, 0.4, 0.38, 0.01, C.shadow);
+      v.box(0, 0.43, 0.18, 0.5, 0.07, 0.1, C.hood);
+      v.box(0, 0, 0.18, 0.5, 0.05, 0.1, C.hood);
+      mirror((s) => {
+        v.box(s * 0.225, 0, 0.18, 0.05, 0.5, 0.1, C.hood);
+        v.box(s * 0.08, 0.22, 0.142, 0.06, 0.03, 0.01, C.eye);
+        v.box(s * 0.252, 0.05, -0.02, 0.01, 0.4, 0.4, neon(s));
+      });
+    },
+  });
+}
+
 const RIGS = {
   holdem: holdemRig, kraken: krakenRig, codenames: codenamesRig, lasvegas: lasvegasRig, cloud: cloudRig,
+  wendy: wendyRig, bluemoon: bluemoonRig, werewolf: werewolfRig, eida: eidaRig,
+  giantbird: giantbirdRig, hero: heroRig, suspect: suspectRig,
 };
 
 /** Rig for an animal, a game character or the club cloud. Non-animals ignore missing variants. */

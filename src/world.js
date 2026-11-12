@@ -103,7 +103,7 @@ function gamesByOwner(plays, owners) {
   return result;
 }
 
-export function buildWorld(scene, owners, { seed, shuffle, animalsPerFarm = 1, plays = [] }) {
+export function buildWorld(scene, owners, { seed, shuffle, animalsPerFarm = 1, plays = [], roaming = [] }) {
   const L = layout(owners.length);
   const ownerGames = gamesByOwner(plays, owners);
   const W = L.cols * CELL;
@@ -226,6 +226,42 @@ export function buildWorld(scene, owners, { seed, shuffle, animalsPerFarm = 1, p
   });
   interactables.push({ kind: 'board', x: plaza.board.x, z: plaza.board.z + 0.8, r: 2.6 });
   areas.push({ kind: 'plaza', minX: L.plaza.x - 12.5, maxX: L.plaza.x + 12.5, minZ: L.plaza.z - 12.5, maxZ: L.plaza.z + 12.5 });
+
+  // --- characters strolling the roads between farms (not on anyone's farm yet) ---
+  // Each one gets its own road segment between two intersections, spread over the town.
+  const segments = [];
+  for (let k = 0; k <= L.rows; k++) {
+    for (let c = 0; c < L.cols; c++) {
+      const z = -D / 2 + k * CELL;
+      const x0 = -W / 2 + c * CELL;
+      segments.push({ minX: x0 + 5, maxX: x0 + CELL - 5, minZ: z - 1.2, maxZ: z + 1.2 });
+    }
+  }
+  for (let k = 0; k <= L.cols; k++) {
+    for (let r = 0; r < L.rows; r++) {
+      const x = -W / 2 + k * CELL;
+      const z0 = -D / 2 + r * CELL;
+      segments.push({ minX: x - 1.2, maxX: x + 1.2, minZ: z0 + 5, maxZ: z0 + CELL - 5 });
+    }
+  }
+  const roadRng = makeRng(`${seed}|roads`);
+  for (let i = segments.length - 1; i > 0; i--) {
+    const j = Math.floor(roadRng.next() * (i + 1));
+    [segments[i], segments[j]] = [segments[j], segments[i]];
+  }
+  const strollers = [];
+  roaming.forEach((type, i) => {
+    if (!GAMES[type]) {
+      console.warn(`[클클 마을] 모르는 캐릭터: ${type}`);
+      return;
+    }
+    const r = makeRng(`${seed}|roam|${type}`);
+    const a = new Animal(type, r.pick(Object.keys(GAMES[type].variants)), { pasture: segments[i % segments.length] }, r);
+    scene.add(a.object);
+    animals.push(a);
+    strollers.push(a);
+  });
+  herds.push(strollers);
 
   // --- spare cells: pond meadows with wild ducks ---
   for (const cell of L.spare) {

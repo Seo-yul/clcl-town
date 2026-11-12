@@ -81,6 +81,7 @@ const world = buildWorld(scene, owners, {
   shuffle: CONFIG.shuffleEachVisit,
   animalsPerFarm: CONFIG.animalsPerFarm,
   plays: CONFIG.plays,
+  roaming: CONFIG.roaming,
 });
 const player = new Player();
 scene.add(player.object);

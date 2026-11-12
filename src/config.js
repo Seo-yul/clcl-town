@@ -31,6 +31,10 @@ export const CONFIG = {
     { game: 'lasvegas', players: ['윤서율', '김동욱', '정장우', '조승아', '이서영', '고태현', '박도연'] },
   ],
 
+  // 아직 아무 농장에도 배정하지 않고 농장 사이 길을 돌아다니는 캐릭터다. 값은 src/models.js 의 GAMES 키다.
+  // 지금은 머더 미스터리 시리즈 7개다. 누군가와 함께하면 plays 에 기록하고, 원하면 여기서 뺀다.
+  roaming: ['wendy', 'bluemoon', 'werewolf', 'eida', 'giantbird', 'hero', 'suspect'],
+
   // false 이면 같은 이름은 항상 같은 동물과 같은 농장 모습을 가진다.
   // true 이면 접속할 때마다 동물과 농장 모습이 새로 정해진다.
   shuffleEachVisit: false,
