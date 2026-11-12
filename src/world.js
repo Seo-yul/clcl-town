@@ -210,6 +210,20 @@ export function buildWorld(scene, owners, { seed, shuffle, animalsPerFarm = 1, p
 
   // --- plaza ---
   const plaza = buildPlaza(scene, statics, L.plaza, worldRng, addCollider, updaters);
+  // A few animals wander the open plaza tiles east and west of the fountain.
+  const P = L.plaza;
+  const plazaHerds = [
+    { pasture: { minX: P.x + 3.4, maxX: P.x + 9.4, minZ: P.z - 3.0, maxZ: P.z + 3.0 }, kinds: [['chicken', 'white'], ['chicken', 'brown'], ['rabbit', 'white']] },
+    { pasture: { minX: P.x - 6.0, maxX: P.x - 3.4, minZ: P.z - 4.2, maxZ: P.z + 3.4 }, kinds: [['sheep', 'white'], ['duck', 'white']] },
+  ];
+  plazaHerds.forEach((h, i) => {
+    const herd = h.kinds.map(([type, variant], k) => new Animal(type, variant, { pasture: h.pasture }, makeRng(`${seed}|plaza|${i}|${k}`)));
+    for (const a of herd) {
+      scene.add(a.object);
+      animals.push(a);
+    }
+    herds.push(herd);
+  });
   interactables.push({ kind: 'board', x: plaza.board.x, z: plaza.board.z + 0.8, r: 2.6 });
   areas.push({ kind: 'plaza', minX: L.plaza.x - 12.5, maxX: L.plaza.x + 12.5, minZ: L.plaza.z - 12.5, maxZ: L.plaza.z + 12.5 });
 
@@ -376,10 +390,10 @@ function buildFarm(scene, cell, owner, index, rng, addCollider, animalCount, gam
   const tallMaterial = voxelMaterial.clone();
   scene.add(tall.mesh(tallMaterial));
 
-  // Farms whose owner played games together keep one character per game played
-  // instead of animals. Other farms get random animals.
+  // Every farm has the club cloud. Farms whose owner played games together add one
+  // character per game played; other farms get `animalCount` random animals (0 by default).
   const home = { pasture: { minX: cx - 9.6, maxX: cx + 9.6, minZ: cz - 1.4, maxZ: cz + 9.6 } };
-  const animals = [];
+  const animals = [new Animal('cloud', 'white', home, makeRng(`${owner}|cloud`))];
   let herd = [];
   if (games.length) {
     for (const g of games) {

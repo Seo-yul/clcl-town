@@ -150,6 +150,10 @@ export class Animal {
       for (let i = 0; i < legs.length; i++) {
         legs[i].rotation.x = -0.08 - amp * (0.5 + 0.5 * Math.sin(t * speed + this.legPhase[i] + this.walkT));
       }
+    } else if (gait === 'float') {
+      // Drifts above the grass, bobbing gently and leaning into its stroll.
+      hop = Math.sin(t * 1.6 + this.walkT) * 0.08;
+      body.rotation.z = Math.sin(this.walkT * 0.5) * 0.06 * this.move;
     } else if (gait === 'bounce') {
       hop = Math.abs(Math.sin(this.walkT * 0.9)) * 0.32 * this.move + Math.abs(Math.sin(t * 2.2 + this.walkT)) * 0.05;
     } else {
@@ -192,6 +196,10 @@ export class Animal {
       if (react === 'flip') body.rotation.y = this.joy > 0 ? turn : 0;
       if (react === 'roll') body.rotation.x = this.joy > 0 ? turn : 0;
       if (react === 'flail') body.rotation.z = Math.sin(t * 38) * 0.12 * this.joy;
+      if (react === 'puff') {
+        const p = Math.sin(k * Math.PI) * 0.28;
+        body.scale.set(1 + p, 1 + p * 0.6, 1 + p);
+      }
     }
     this.pos.y = (this.home.swim ? -0.06 + Math.sin(t * 2 + this.walkT) * 0.02 : 0) + hop;
   }

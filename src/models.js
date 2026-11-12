@@ -320,9 +320,29 @@ export const GAMES = {
   },
 };
 
-/** Animal or game definition for a critter type. */
+// The club's own character: every owner is a member of 클라우드 클럽 (CLCL) and
+// gets one little cloud on their farm. It is not a game, so it is listed apart.
+export const CLUB = {
+  cloud: {
+    name: '클라우드 클럽', emoji: '☁️', action: '구름 쓰다듬기',
+    lines: [
+      'git push --force',
+      'git commit -m "fix"',
+      'rm -rf node_modules',
+      '제 컴퓨터에선 되는데요?',
+      '금요일엔 배포 안 해요',
+      '버그가 아니라 기능이에요',
+      '왜 되는지 모르겠는데 돼요',
+      'LGTM!',
+    ],
+    speed: 0.8, radius: 0.6, bubbleY: 1.9, gait: 'float', react: 'puff',
+    variants: { white: {} },
+  },
+};
+
+/** Animal, game or club definition for a critter type. */
 export function critterDef(type) {
-  return ANIMALS[type] || GAMES[type];
+  return ANIMALS[type] || GAMES[type] || CLUB[type];
 }
 
 /** Draws pixel art rows ('#' = filled) as thin boxes on the z plane, one box per run. */
@@ -563,13 +583,39 @@ function lasvegasRig() {
   return rigOf(body, head, [], s);
 }
 
-const GAME_RIGS = { holdem: holdemRig, kraken: krakenRig, codenames: codenamesRig, lasvegas: lasvegasRig };
+/** 클라우드 클럽: a small floating version of the plaza mascot 클클이. */
+function cloudRig() {
+  const W = '#ffffff';
+  const S = '#dfeaf8';
+  const INK = '#2e4a7d';
+  const body = new THREE.Group();
+  body.add(mesh(geo('club:cloud', (v) => {
+    v.box(0, 0, 0, 1.0, 0.5, 0.6, W);
+    v.box(-0.52, 0, 0, 0.5, 0.38, 0.5, W);
+    v.box(0.52, 0, 0, 0.5, 0.44, 0.5, W);
+    v.box(-0.15, 0.5, 0, 0.5, 0.26, 0.46, W);
+    v.box(0.2, 0.5, 0, 0.36, 0.18, 0.42, W);
+    v.box(0, -0.05, 0, 1.4, 0.1, 0.46, S);
+    mirror((s) => {
+      v.box(s * 0.19, 0.2, 0.305, 0.07, 0.13, 0.02, INK);
+      v.box(s * 0.33, 0.1, 0.305, 0.11, 0.05, 0.02, '#f7a8b8');
+    });
+    v.box(0, 0.11, 0.305, 0.12, 0.03, 0.02, INK);
+  })));
+  const head = new THREE.Group();
+  body.add(head);
+  return rigOf(body, head, [], 0.45);
+}
 
-/** Rig for an animal or a game character. Games ignore missing variants. */
+const RIGS = {
+  holdem: holdemRig, kraken: krakenRig, codenames: codenamesRig, lasvegas: lasvegasRig, cloud: cloudRig,
+};
+
+/** Rig for an animal, a game character or the club cloud. Non-animals ignore missing variants. */
 export function createCritterRig(type, variant) {
-  if (GAME_RIGS[type]) {
-    const variants = GAMES[type].variants;
-    return GAME_RIGS[type](variants[variant] || Object.values(variants)[0]);
+  if (RIGS[type]) {
+    const variants = critterDef(type).variants;
+    return RIGS[type](variants[variant] || Object.values(variants)[0]);
   }
   return createAnimalRig(type, variant);
 }

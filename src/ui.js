@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { ANIMALS, GAMES } from './models.js';
+import { ANIMALS, GAMES, CLUB } from './models.js';
 
 const $ = (sel) => document.querySelector(sel);
 const v3 = new THREE.Vector3();
@@ -9,16 +9,15 @@ function escapeHtml(s) {
 }
 
 /**
- * Short line for farm labels and the plaza board.
- * Animal farms: "🐮 소" ("🐮 소 2" for several). Game farms: icons only, "🃏 🐙2 🕵️ 🎲".
+ * Short line for farm labels and the plaza board: the club cloud and each game as
+ * icons only, without counts ("☁️ 🃏 🐙 🕵️ 🎲"), then any animals ("🐮 소").
  */
 export function herdSummary(farm) {
-  if (farm.games.length) {
-    return farm.games.map((g) => `${GAMES[g.type].emoji}${g.count > 1 ? g.count : ''}`).join(' ');
-  }
-  return farm.herd
+  const icons = [CLUB.cloud.emoji, ...farm.games.map((g) => GAMES[g.type].emoji)].join(' ');
+  const animals = farm.herd
     .map((h) => `${ANIMALS[h.type].emoji} ${ANIMALS[h.type].name}${h.count > 1 ? ` ${h.count}` : ''}`)
     .join(' · ');
+  return animals ? `${icons} ${animals}` : icons;
 }
 
 /** Info window section: games played together, or the animals living on the farm. */
@@ -32,6 +31,7 @@ function residentsSection(farm) {
       .join('');
     return `<h3>함께한 게임</h3><ul class="animals games">${games}</ul>`;
   }
+  if (!farm.herd.length) return '';
   const animals = farm.herd
     .map((h) => {
       const a = ANIMALS[h.type];
@@ -299,6 +299,7 @@ export class Dialog {
        <div class="facts">
          <span>${farm.crop.emoji} ${farm.crop.name} 밭</span>
          <span>🏠 ${farm.style.label}</span>
+         <span>${CLUB.cloud.emoji} ${CLUB.cloud.name}</span>
        </div>
        ${guestbook ? '<h3>방명록</h3><div class="guestbook"><div class="giscus" id="guestbook"></div></div>' : ''}`,
       farm.accent,
