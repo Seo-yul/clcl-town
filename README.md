@@ -4,9 +4,7 @@
 
 **👉 [클클 타운에 놀러 가기](https://devops.ai.kr/clcl-town/)**
 
-클클 타운은 친구들의 농장이 모여 있는 작은 3D 복셀 마을입니다.
-캐릭터를 움직여 이웃들의 농장을 돌아다니며 친구들에게 인사해 보세요.
-설치할 것 없이 브라우저에서 바로 열리고, 휴대폰에서도 즐길 수 있습니다.
+클클 타운은 클라우드 클럽 보드게임 TF가 함께한 게임을 기록하는 마을입니다.
 
 ## 마을에서 할 수 있는 일
 
@@ -35,10 +33,15 @@
 광장의 GitHub 표지판 앞에서 E 를 누르면 이 저장소로 옵니다.
 농장 주인을 더하거나 함께한 게임을 기록하는 방법, 직접 실행하고 배포하는 방법은 [개발 문서](docs/DEVELOPMENT.md)에 정리해 두었습니다.
 
-## 만든 재료
+## 기술 스택
 
-- [three.js](https://threejs.org/) 와 [Vite](https://vite.dev/) 로 만들었습니다.
-- 방명록은 [giscus](https://giscus.app/) 를 씁니다. 방명록 테마는 giscus 의 light 테마를 바탕으로 마을에 맞게 고쳤습니다.
+- [three.js](https://threejs.org/): 3D 복셀 마을
+- [Vite](https://vite.dev/): 개발 서버와 빌드
+- [giscus](https://giscus.app/): 농장 방명록 (GitHub Discussions)
+
+## 출처와 라이선스
+
+- 방명록 테마는 giscus 의 light 테마를 바탕으로 마을에 맞게 고쳤습니다.
 - 글꼴은 [갈무리(Galmuri)](https://galmuri.quiple.dev/) 픽셀 글꼴입니다. SIL Open Font License 1.1 을 따르며, 라이선스 전문은 `public/fonts/OFL.md` 에 있습니다.
 - 게임 캐릭터는 각 게임의 상자와 카드 그림을 참고해 이 마을에서 새로 만든 복셀 모델입니다.
   게임 이름과 원래 그림의 권리는 각 출판사와 작가에게 있습니다.
