@@ -47,6 +47,9 @@ const AUTUMN = {
   plotGrass: '#b7c46a',
 };
 const DRY_GRASS = '#c4a64e';
+// Spring grass is fresh and light; summer grass is deep and lush.
+const SPRING = { grass: '#9fd36c', plotGrass: '#acdb79' };
+const SUMMER = { grass: '#7cbf55', plotGrass: '#89c95f' };
 
 // The GitHub mark (Primer Octicons mark-github-16), drawn on the plaza's contribute sign.
 const GITHUB_MARK = 'M6.766 11.328c-2.063-.25-3.516-1.734-3.516-3.656 0-.781.281-1.625.75-2.188-.203-.515-.172-1.609.063-2.062.625-.078 1.468.25 1.968.703.594-.187 1.219-.281 1.985-.281.765 0 1.39.094 1.953.265.484-.437 1.344-.765 1.969-.687.218.422.25 1.515.046 2.047.5.593.766 1.39.766 2.203 0 1.922-1.453 3.375-3.547 3.64.531.344.89 1.094.89 1.954v1.625c0 .468.391.734.86.547C13.781 14.359 16 11.53 16 8.03 16 3.61 12.406 0 7.984 0 3.563 0 0 3.61 0 8.031a7.88 7.88 0 0 0 5.172 7.422c.422.156.828-.125.828-.547v-1.25c-.219.094-.5.156-.75.156-1.031 0-1.64-.562-2.078-1.609-.172-.422-.36-.672-.719-.719-.187-.015-.25-.093-.25-.187 0-.188.313-.328.625-.328.453 0 .844.281 1.25.86.313.452.64.655 1.031.655s.641-.14 1-.5c.266-.265.47-.5.657-.656';
@@ -157,6 +160,8 @@ function gamesByOwner(plays, owners) {
 export function buildWorld(scene, owners, { seed, shuffle, animalsPerFarm = 1, plays = [], roaming = [], contribute = '' }) {
   if (SEASON.snow) Object.assign(COLOR, WINTER);
   else if (SEASON.autumn) Object.assign(COLOR, AUTUMN);
+  else if (SEASON.spring) Object.assign(COLOR, SPRING);
+  else if (SEASON.summer) Object.assign(COLOR, SUMMER);
   const L = layout(owners.length);
   const ownerGames = gamesByOwner(plays, owners);
   const W = L.cols * CELL;
@@ -698,6 +703,70 @@ function buildHayBale(v, x, z) {
   v.box(x + 0.25, 0, z, 0.08, 0.82, 0.87, '#c9a23f');
   if (SEASON.snow) v.box(x, 0.82, z, 1.07, 0.1, 0.89, SNOW);
   if (SEASON.autumn) addPumpkin(v, x + 0.1, 0.82, z, 0.8);
+  if (SEASON.summer) addWatermelon(v, x + 0.1, 0.82, z, 0.8);
+}
+
+/** A striped watermelon sitting at height y. `s` scales it. */
+function addWatermelon(v, x, y, z, s = 1) {
+  v.box(x, y, z, 0.62 * s, 0.46 * s, 0.5 * s, '#3f8f3a');
+  for (const dx of [-0.2, 0, 0.2]) v.box(x + dx * s, y, z, 0.07 * s, 0.47 * s, 0.52 * s, '#24622a');
+  v.box(x, y + 0.46 * s, z, 0.05 * s, 0.08 * s, 0.05 * s, '#5a7d2a');
+}
+
+/** Spring picnic: a checkered mat, a basket and a lunch box. */
+function buildPicnic(v, x, z, addCollider) {
+  for (let i = 0; i < 4; i++) {
+    for (let j = 0; j < 3; j++) {
+      v.box(x - 1.2 + i * 0.8, 0.07, z - 0.8 + j * 0.8, 0.8, 0.04, 0.8, (i + j) & 1 ? '#fffaf0' : '#e45b5b');
+    }
+  }
+  const bx = x + 0.6;
+  const bz = z - 0.3;
+  v.box(bx, 0.11, bz, 0.72, 0.42, 0.5, '#b7834a', { jitter: 0.04 });
+  v.box(bx, 0.53, bz, 0.76, 0.06, 0.54, '#9a6a38');
+  mirrorX((t) => v.box(bx + t * 0.3, 0.59, bz, 0.06, 0.3, 0.06, '#9a6a38'));
+  v.box(bx, 0.86, bz, 0.66, 0.06, 0.06, '#9a6a38');
+  v.box(x - 0.6, 0.11, z + 0.15, 0.62, 0.2, 0.44, '#3d7fd1');
+  v.box(x - 0.6, 0.31, z + 0.15, 0.64, 0.05, 0.46, '#f4f1ea');
+  addCollider(bx, bz, 0.8, 0.6, 0.9);
+}
+
+/** A small bed of tulips. */
+function buildTulips(v, x, z, addCollider) {
+  v.box(x, 0, z, 2.0, 0.3, 1.5, '#b9a98c');
+  v.box(x, 0, z, 1.8, 0.36, 1.3, '#8a5a36');
+  const colors = ['#e8433a', '#f6c21c', '#f59bb8', '#fffaf0', '#e8433a', '#c2408a'];
+  for (let i = 0; i < 4; i++) {
+    for (let j = 0; j < 3; j++) {
+      const tx = x - 0.66 + i * 0.44;
+      const tz = z - 0.4 + j * 0.4;
+      v.box(tx, 0.36, tz, 0.05, 0.3, 0.05, '#4f9a3c');
+      v.box(tx, 0.62, tz, 0.17, 0.22, 0.17, colors[(i * 3 + j) % colors.length]);
+    }
+  }
+  addCollider(x, z, 2.0, 1.5, 0.5);
+}
+
+/** Summer: a striped parasol over a cooler and a watermelon. */
+function buildParasol(v, x, z, addCollider) {
+  v.box(x, 0.07, z, 0.1, 2.7, 0.1, '#f4f1ea');
+  [[2.8, 0.12], [2.2, 0.14], [1.5, 0.14], [0.8, 0.12]].forEach(([w, h], i) => {
+    v.box(x, 2.5 + i * 0.13, z, w, h, w, i % 2 ? '#fffaf0' : '#e84a4a');
+  });
+  v.box(x + 0.6, 0.07, z + 0.3, 0.7, 0.45, 0.45, '#3d9be0');
+  v.box(x + 0.6, 0.52, z + 0.3, 0.74, 0.08, 0.49, '#f4f1ea');
+  addWatermelon(v, x - 0.6, 0.07, z + 0.35, 1.0);
+  addCollider(x, z + 0.2, 2.0, 1.0, 0.7);
+}
+
+/** A paddling pool with a rubber duck. */
+function buildPool(v, x, z, addCollider) {
+  v.box(x, 0.07, z, 2.2, 0.38, 2.2, '#5fb4ef');
+  v.box(x, 0.07, z, 1.7, 0.4, 1.7, '#8fd6f5');
+  v.box(x - 0.2, 0.47, z + 0.15, 0.3, 0.22, 0.26, '#f6d02f');
+  v.box(x - 0.07, 0.62, z + 0.15, 0.18, 0.18, 0.18, '#f6d02f');
+  v.box(x + 0.04, 0.66, z + 0.15, 0.1, 0.06, 0.1, '#f39a1f');
+  addCollider(x, z, 2.2, 2.2, 0.45);
 }
 
 /** A pumpkin sitting at height y. `s` scales it. */
@@ -1073,6 +1142,15 @@ function buildPlaza(scene, v, cell, rng, addCollider, updaters, decor, contribut
     );
     mark.position.set(gx, 1.62, gz + 0.11);
     scene.add(mark);
+  }
+
+  // Spring and summer use the same open corners.
+  if (SEASON.spring) {
+    buildPicnic(v, cx + 7.0, cz + 8.2, addCollider);
+    buildTulips(v, cx - 9.6, cz + 5.6, addCollider);
+  } else if (SEASON.summer) {
+    buildParasol(v, cx + 7.6, cz + 8.2, addCollider);
+    buildPool(v, cx - 9.6, cz + 5.6, addCollider);
   }
 
   // Autumn harvest on the same open corners: a hay bale with pumpkins and a heap of leaves.

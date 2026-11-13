@@ -183,6 +183,8 @@ export class Overlay {
 const MAP_COLORS = { grass: '#7fbf5c', road: '#e6d2a8', plot: '#a6d97c', water: '#6cc4e8' };
 const MAP_WINTER = { grass: '#dde5ec', road: '#c9bea9', plot: '#eef3f7', water: '#bfe0ee' };
 const MAP_AUTUMN = { grass: '#a8b75c', road: '#e6d2a8', plot: '#bcc86e', water: '#6cc4e8' };
+const MAP_SPRING = { grass: '#93cc63', road: '#e6d2a8', plot: '#b2df82', water: '#6cc4e8' };
+const MAP_SUMMER = { grass: '#6fb34b', road: '#e6d2a8', plot: '#8fcc64', water: '#6cc4e8' };
 
 export class Minimap {
   constructor(canvas, world) {
@@ -228,7 +230,7 @@ export class Minimap {
     off.height = this.canvas.height;
     const g = off.getContext('2d');
     const w = this.world;
-    const c = SEASON.snow ? MAP_WINTER : SEASON.autumn ? MAP_AUTUMN : MAP_COLORS;
+    const c = SEASON.snow ? MAP_WINTER : SEASON.autumn ? MAP_AUTUMN : SEASON.spring ? MAP_SPRING : SEASON.summer ? MAP_SUMMER : MAP_COLORS;
     g.fillStyle = c.grass;
     g.fillRect(0, 0, off.width, off.height);
     // roads

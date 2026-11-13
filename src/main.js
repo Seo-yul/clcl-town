@@ -6,7 +6,7 @@ import { Player } from './player.js';
 import { Sky, TIMES, TIME_ORDER, timeForHour } from './sky.js';
 import { Overlay, Minimap, Dialog, Prompt, toast, areaBanner, setupTouch } from './ui.js';
 import { initSeason } from './season.js';
-import { Falling, SNOWFALL, LEAFFALL } from './falling.js';
+import { Falling, Fireflies, SNOWFALL, LEAFFALL, PETALFALL } from './falling.js';
 
 const $ = (sel) => document.querySelector(sel);
 
@@ -93,10 +93,12 @@ scene.add(player.object);
 player.teleport(world.spawn.x, world.spawn.z, Math.PI);
 
 const sky = new Sky(scene, world);
-// Snow in the snow season, leaves in autumn.
-const fallKind = season.snow ? SNOWFALL : season.autumn ? LEAFFALL : null;
+// Snow in the snow season, leaves in autumn, cherry petals in spring, fireflies on summer nights.
+const fallKind = season.snow ? SNOWFALL : season.autumn ? LEAFFALL : season.spring ? PETALFALL : null;
 const falling = fallKind ? new Falling(scene, fallKind) : null;
-let timeKey = timeForHour(new Date().getHours());
+const fireflies = season.summer ? new Fireflies(scene) : null;
+// New Year's Day always opens at dawn to show the sunrise.
+let timeKey = season.newyear ? 'morning' : timeForHour(new Date().getHours());
 sky.apply(timeKey);
 
 const overlay = new Overlay($('#labels'));
@@ -324,6 +326,14 @@ function snapCamera() {
 
 function orbitCamera(t) {
   const r = Math.max(world.W, world.D) * 0.62 + 30;
+  if (season.newyear) {
+    // New Year's Day: look east across the town, low enough to watch the sun rise over the forest.
+    const a = -Math.PI / 2 + Math.sin(t * 0.04) * 0.15;
+    camera.position.set(Math.sin(a) * r, r * 0.3 + 8, Math.cos(a) * r);
+    lookAt.set(0, r * 0.12, 0);
+    camera.lookAt(lookAt);
+    return;
+  }
   const a = t * 0.05;
   camera.position.set(Math.sin(a) * r, r * 0.62 + 12, Math.cos(a) * r);
   lookAt.set(0, 0, 0);
@@ -435,6 +445,10 @@ renderer.setAnimationLoop(() => {
   updateCamera(dt, elapsed);
   sky.follow(state === 'intro' ? ORIGIN : camTarget);
   falling?.update(dt, elapsed, state === 'intro' ? ORIGIN : camTarget);
+  if (fireflies) {
+    fireflies.setLevel(sky.lamps);
+    fireflies.update(dt, elapsed, state === 'intro' ? ORIGIN : camTarget);
+  }
 
   renderer.render(scene, camera);
   overlay.update(camera, window.innerWidth, window.innerHeight, elapsed);

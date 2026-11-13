@@ -30,12 +30,63 @@ export const TIMES = {
 
 export const TIME_ORDER = ['morning', 'day', 'evening', 'night'];
 
+// New Year's Day opens at dawn. Over SUNRISE seconds the light turns into morning
+// while a big sun climbs out of the forest in the east.
+const DAWN = {
+  top: '#26305c', bottom: '#f3a07c', fog: '#e8a58c',
+  sun: '#ff9a62', sunI: 1.3, hemiSky: '#9a92c4', hemiGround: '#8c7a76', hemiI: 1.15, dir: [80, 6, 8], lamps: 0.5,
+};
+const SUNRISE = 30;
+const SUN_X = 360; // far east, just inside the ground's edge, so the ground hides the sun below the horizon
+const SUN_FROM = -32;
+const SUN_TO = 76;
+
+const lerpColor = (a, b, t) => `#${new THREE.Color(a).lerp(new THREE.Color(b), t).getHexString()}`;
+
+/** Palette between a and b. */
+function mixPalette(a, b, t) {
+  const out = {};
+  for (const k of Object.keys(b)) {
+    if (typeof b[k] === 'number') out[k] = a[k] + (b[k] - a[k]) * t;
+    else if (Array.isArray(b[k])) out[k] = b[k].map((v, i) => a[k][i] + (v - a[k][i]) * t);
+    else if (typeof b[k] === 'string' && b[k].startsWith('#')) out[k] = lerpColor(a[k], b[k], t);
+    else out[k] = b[k];
+  }
+  return out;
+}
+
+/** A voxel sun facing west: rows of boxes in a disc, red at the bottom and gold at the top, with a soft halo. */
+function buildSun() {
+  const g = new THREE.Group();
+  const R = 26;
+  const px = 4;
+  const v = new Voxels();
+  for (let y = -R + px / 2; y < R; y += px) {
+    const w = Math.round((2 * Math.sqrt(R * R - y * y)) / px) * px;
+    if (w <= 0) continue;
+    v.box(0, y, 0, w, px, 2, lerpColor('#ff4a2a', '#ffc35a', (y + R) / (2 * R)), { center: true });
+  }
+  const disc = v.mesh(new THREE.MeshBasicMaterial({ vertexColors: true, fog: false }), { cast: false, receive: false });
+  const halo = new THREE.Mesh(
+    new THREE.CircleGeometry(R * 1.7, 40),
+    new THREE.MeshBasicMaterial({
+      color: '#ff9a50', transparent: true, opacity: 0.38, depthWrite: false, fog: false, blending: THREE.AdditiveBlending,
+    }),
+  );
+  halo.position.z = -6;
+  g.add(halo, disc);
+  g.rotation.y = -Math.PI / 2;
+  return g;
+}
+
 export function timeForHour(h) {
   if (h >= 5 && h < 9) return 'morning';
   if (h >= 9 && h < 17) return 'day';
   if (h >= 17 && h < 20) return 'evening';
   return 'night';
 }
+
+const smooth = (t) => t * t * (3 - 2 * t);
 
 export class Sky {
   constructor(scene, world) {
@@ -56,6 +107,15 @@ export class Sky {
     scene.fog = new THREE.Fog('#d5efff', 70, 170);
     this.world = world;
     this.setShadowSpan(34);
+    this.lamps = 0;
+
+    // 0 at dawn, 1 once the sun is up. Only New Year's Day starts below 1.
+    this.sunrise = SEASON.newyear ? 0 : 1;
+    if (SEASON.newyear) {
+      this.sunDisc = buildSun();
+      this.sunDisc.position.set(SUN_X, SUN_FROM, 0);
+      scene.add(this.sunDisc);
+    }
 
     // drifting voxel clouds
     const rng = makeRng('clcl-sky');
@@ -83,8 +143,14 @@ export class Sky {
   }
 
   apply(key) {
-    const p = TIMES[key];
     this.key = key;
+    // Picking another time of day ends the sunrise.
+    if (key !== 'morning') this.sunrise = 1;
+    this.setPalette(this.sunrise < 1 ? mixPalette(DAWN, TIMES.morning, smooth(this.sunrise)) : TIMES[key], key);
+    return TIMES[key];
+  }
+
+  setPalette(p, key) {
     this.hemi.color.set(p.hemiSky);
     this.hemi.groundColor.set(p.hemiGround);
     if (SEASON.snow) this.hemi.groundColor.lerp(SNOW_BOUNCE, key === 'night' ? 0.3 : 0.6);
@@ -100,7 +166,7 @@ export class Sky {
     document.documentElement.dataset.time = key;
     this.world.lampMaterial.emissive.set('#ffcf6e').multiplyScalar(p.lamps);
     this.world.setLights(p.lamps);
-    return p;
+    this.lamps = p.lamps;
   }
 
   follow(target) {
@@ -109,6 +175,16 @@ export class Sky {
   }
 
   update(dt) {
+    if (this.sunDisc) {
+      if (this.sunrise < 1 && this.key === 'morning') {
+        this.sunrise = Math.min(1, this.sunrise + dt / SUNRISE);
+        this.setPalette(mixPalette(DAWN, TIMES.morning, smooth(this.sunrise)), 'morning');
+      }
+      // The sun is up in the first half of the sunrise; the light keeps warming after that.
+      const up = 1 - (1 - Math.min(1, this.sunrise * 2)) ** 3;
+      this.sunDisc.position.y = SUN_FROM + (SUN_TO - SUN_FROM) * up;
+      this.sunDisc.visible = this.key === 'morning';
+    }
     for (const c of this.clouds) {
       c.position.x += c.userData.speed * dt;
       if (c.position.x > this.spanX) c.position.x = -this.spanX;

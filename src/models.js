@@ -6,8 +6,13 @@ import { SEASON } from './season.js';
 /** Color of snow lying on things. */
 export const SNOW = '#f7fafc';
 
+// Seasonal foliage for round trees. Each list has four colors, like LEAVES, so a seeded pick
+// takes the same slot in every season and the town's random sequence never shifts.
 /** Autumn foliage: maple red, orange, ginkgo yellow and crimson. */
 export const AUTUMN_LEAVES = ['#d94a2b', '#ea7d2c', '#f1bd2e', '#c23b32'];
+/** Spring: three shades of cherry blossom and one tree in fresh leaf. */
+const SPRING_LEAVES = ['#f6b3c6', '#fbd0dc', '#f09ab4', '#8fcf63'];
+const SUMMER_LEAVES = ['#3f9a3f', '#4aa646', '#378c3a', '#55ad4a'];
 
 // A maple leaf, drawn with pixels(). Clouds wear one in autumn.
 const MAPLE = [
@@ -18,6 +23,15 @@ const MAPLE = [
   '#######',
   '..###..',
   '...#...',
+];
+
+// A cherry blossom; the gap in the middle takes a yellow center. Clouds wear one in spring.
+const BLOSSOM = [
+  '.##.##.',
+  '.#####.',
+  '###.###',
+  '.#####.',
+  '..#.#..',
 ];
 
 // ---------------------------------------------------------------------------
@@ -652,6 +666,19 @@ function cloudRig() {
       pixels(v, MAPLE, -0.62, 0.6, 0.32, 0.04, '#e0442b', 0.03);
       v.box(-0.48, 0.28, 0.32, 0.03, 0.04, 0.03, '#9a3a22');
     })));
+  } else if (SEASON.spring) {
+    // A cherry blossom in the same place.
+    body.add(mesh(geo('club:cloud:blossom', (v) => {
+      pixels(v, BLOSSOM, -0.62, 0.56, 0.32, 0.04, '#f59bb8', 0.03);
+      v.box(-0.48, 0.42, 0.33, 0.04, 0.04, 0.03, '#f6c84a');
+    })));
+  } else if (SEASON.summer) {
+    // A straw hat on the top puff.
+    body.add(mesh(geo('club:cloud:strawhat', (v) => {
+      v.box(-0.08, 0.72, 0, 0.82, 0.05, 0.6, '#dcb653');
+      v.box(-0.08, 0.77, 0, 0.44, 0.2, 0.38, '#e8c867');
+      v.box(-0.08, 0.77, 0, 0.46, 0.06, 0.4, '#d9483b');
+    })));
   }
   const head = new THREE.Group();
   body.add(head);
@@ -1046,11 +1073,17 @@ export function addTree(v, x, z, rng, kind = 'round', scale = 1) {
     });
     return;
   }
-  const autumn = SEASON.autumn;
-  // In autumn the apple tree is a persimmon tree: pale leaves and lots of orange fruit.
-  const persimmon = autumn && kind === 'apple';
-  let leaf = rng.pick(autumn ? AUTUMN_LEAVES : LEAVES);
+  const { spring, summer, autumn } = SEASON;
+  const palette = autumn ? AUTUMN_LEAVES : spring ? SPRING_LEAVES : summer ? SUMMER_LEAVES : LEAVES;
+  let leaf = rng.pick(palette);
+  // The apple tree follows the seasons: white blossom in spring, a persimmon tree in autumn.
+  const apple = kind === 'apple';
+  const persimmon = apple && autumn;
+  const appleBlossom = apple && spring;
   if (persimmon) leaf = '#c39a3a';
+  if (appleBlossom) leaf = '#8ccf62';
+  // Cherry trees drop petals in spring; the fresh green one does not.
+  const cherry = spring && !apple && leaf !== SPRING_LEAVES[3];
   v.box(x, 0, z, 0.6 * s, 1.6 * s, 0.6 * s, trunk);
   v.box(x, 1.4 * s, z, 2.4 * s, 1.4 * s, 2.4 * s, leaf, { jitter: 0.05 });
   v.box(x, 1.7 * s, z, 2.8 * s, 0.8 * s, 1.8 * s, leaf, { jitter: 0.05 });
@@ -1062,19 +1095,20 @@ export function addTree(v, x, z, rng, kind = 'round', scale = 1) {
     v.box(x, 2.5 * s, z, 2.8 * s + 0.04, 0.1, 1.8 * s + 0.04, SNOW);
     v.box(x, 2.5 * s, z, 1.8 * s + 0.04, 0.1, 2.8 * s + 0.04, SNOW);
   }
-  const fruit = persimmon ? '#f5600c' : '#e8433a';
-  if (kind === 'apple') {
+  const fruit = persimmon ? '#f5600c' : appleBlossom ? '#fde8ee' : '#e8433a';
+  if (apple) {
     for (let i = 0; i < 5; i++) {
       const a = rng.range(0, Math.PI * 2);
       v.box(x + Math.cos(a) * 1.22 * s, rng.range(1.6, 2.5) * s, z + Math.sin(a) * 1.22 * s, 0.22, 0.22, 0.22, fruit);
     }
   }
-  if (autumn) {
-    // Extra persimmons and fallen leaves take their randomness from the tree's position,
-    // so the town's seeded sequence (and every farm's look) stays the same.
-    const local = makeRng(`autumn|${x.toFixed(2)}|${z.toFixed(2)}`);
-    if (persimmon) {
-      // Persimmons on the outside of the canopy: five on its shoulders, the rest on its sides.
+  if (autumn || spring) {
+    // Extra fruit or blossom and the fallen leaves or petals take their randomness from the
+    // tree's position, so the town's seeded sequence (and every farm's look) stays the same.
+    const local = makeRng(`${autumn ? 'autumn' : 'spring'}|${x.toFixed(2)}|${z.toFixed(2)}`);
+    if (persimmon || appleBlossom) {
+      // On the outside of the canopy: five on its shoulders, the rest on its sides.
+      const size = persimmon ? 0.3 : 0.26;
       for (let i = 0; i < 12; i++) {
         const side = local.int(0, 3);
         const along = local.range(-1.0, 1.0);
@@ -1088,14 +1122,17 @@ export function addTree(v, x, z, rng, kind = 'round', scale = 1) {
           out = y > 1.7 && y < 2.5 && Math.abs(along) < 0.9 ? 1.45 : 1.25;
         }
         const [dx, dz] = side === 0 ? [out, along] : side === 1 ? [-out, along] : side === 2 ? [along, out] : [along, -out];
-        v.box(x + dx * s, y * s, z + dz * s, 0.3, 0.27, 0.3, fruit);
+        v.box(x + dx * s, y * s, z + dz * s, size, size * 0.9, size, fruit);
       }
     }
-    for (let i = 0; i < 6; i++) {
-      const a = local.range(0, Math.PI * 2);
-      const r = local.range(0.55, 1.7) * s;
-      const c = local.chance(0.6) ? leaf : local.pick(AUTUMN_LEAVES);
-      v.box(x + Math.cos(a) * r, 0.07, z + Math.sin(a) * r, 0.3, 0.03, 0.26, c);
+    if (autumn || cherry) {
+      const fallen = autumn ? AUTUMN_LEAVES : SPRING_LEAVES.slice(0, 3);
+      for (let i = 0; i < 6; i++) {
+        const a = local.range(0, Math.PI * 2);
+        const r = local.range(0.55, 1.7) * s;
+        const c = local.chance(0.6) ? leaf : local.pick(fallen);
+        v.box(x + Math.cos(a) * r, 0.07, z + Math.sin(a) * r, 0.3, 0.03, 0.26, c);
+      }
     }
   }
 }
@@ -1111,6 +1148,15 @@ export function addFlower(v, x, z, color) {
     v.box(x, 0, z, 0.05, 0.46, 0.05, '#5d9a3e');
     v.box(x, 0.46, z, 0.26, 0.07, 0.26, COSMOS[FLOWER_COLORS.indexOf(color)] || color);
     v.box(x, 0.48, z, 0.08, 0.08, 0.08, '#f2c12e');
+    return;
+  }
+  if (SEASON.summer && (color === FLOWER_COLORS[1] || color === FLOWER_COLORS[4])) {
+    // Sunflower: tall, its face turned toward the camera.
+    v.box(x, 0, z, 0.08, 0.95, 0.08, '#4f8a2f');
+    v.box(x + 0.1, 0.4, z, 0.16, 0.06, 0.1, '#5d9a3e');
+    v.box(x - 0.1, 0.62, z, 0.16, 0.06, 0.1, '#5d9a3e');
+    v.box(x, 0.86, z + 0.06, 0.42, 0.42, 0.06, '#f6c21c');
+    v.box(x, 0.96, z + 0.1, 0.22, 0.22, 0.04, '#6b3f1d');
     return;
   }
   v.box(x, 0, z, 0.06, 0.28, 0.06, '#4f9a3c');
@@ -1168,6 +1214,13 @@ export function createMascot() {
     // A maple leaf pinned above the left eye like a hairpin, as on the club clouds.
     pixels(v, MAPLE, -1.62, 0.92, 0.93, 0.12, '#e0442b', 0.06);
     v.box(-1.2, 0.0, 0.93, 0.08, 0.1, 0.06, '#9a3a22');
+  } else if (SEASON.spring) {
+    pixels(v, BLOSSOM, -1.62, 0.86, 0.93, 0.12, '#f59bb8', 0.06);
+    v.box(-1.2, 0.5, 0.95, 0.12, 0.12, 0.06, '#f6c84a');
+  } else if (SEASON.summer) {
+    v.box(-0.4, 1.45, 0, 2.7, 0.14, 2.0, '#dcb653');
+    v.box(-0.4, 1.59, 0, 1.5, 0.6, 1.15, '#e8c867');
+    v.box(-0.4, 1.59, 0, 1.54, 0.18, 1.19, '#d9483b');
   }
   const m = v.mesh();
   const g = new THREE.Group();
