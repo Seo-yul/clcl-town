@@ -1092,15 +1092,18 @@ function buildPlaza(scene, v, cell, rng, addCollider, updaters, decor, contribut
     addCollider(x + 0.8, z, 2.2, 0.8, 0.6);
   }
 
-  // flower beds (under snow in the snow season)
-  for (const [x, z] of [[cx - 8.6, cz + 1.5], [cx + 7.5, cz - 4.6], [cx - 3.2, cz + 8.6], [cx + 3.2, cz + 8.6]]) {
-    v.box(x, 0, z, 3.0, 0.35, 1.8, '#b9a98c');
-    v.box(x, 0, z, 2.7, snow ? 0.46 : 0.4, 1.5, COLOR.soil);
+  // flower beds (under snow in the snow season). The bed that stood beside the GitHub sign was
+  // removed; it is still built into a throwaway Voxels so its rng picks stay and everything built
+  // after the plaza keeps its look.
+  for (const [x, z, removed] of [[cx - 8.6, cz + 1.5], [cx + 7.5, cz - 4.6], [cx - 3.2, cz + 8.6, true], [cx + 3.2, cz + 8.6]]) {
+    const bed = removed ? discard() : v;
+    bed.box(x, 0, z, 3.0, 0.35, 1.8, '#b9a98c');
+    bed.box(x, 0, z, 2.7, snow ? 0.46 : 0.4, 1.5, COLOR.soil);
     for (let k = 0; k < 9; k++) {
       const color = bloom(rng.pick(FLOWER_COLORS));
-      if (!snow) v.box(x - 1.0 + (k % 3) * 1.0, 0.4, z - 0.45 + Math.floor(k / 3) * 0.45, 0.28, 0.24, 0.28, color);
+      if (!snow) bed.box(x - 1.0 + (k % 3) * 1.0, 0.4, z - 0.45 + Math.floor(k / 3) * 0.45, 0.28, 0.24, 0.28, color);
     }
-    addCollider(x, z, 3.0, 1.8, 0.4);
+    if (!removed) addCollider(x, z, 3.0, 1.8, 0.4);
   }
 
   // Trees in the corners. In the Christmas season the north-east one makes way for the
