@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { ANIMALS, GAMES, CLUB } from './models.js';
+import { SEASON } from './season.js';
 
 const $ = (sel) => document.querySelector(sel);
 const v3 = new THREE.Vector3();
@@ -137,6 +138,9 @@ export class Overlay {
 // Minimap
 // ---------------------------------------------------------------------------
 
+const MAP_COLORS = { grass: '#7fbf5c', road: '#e6d2a8', plot: '#a6d97c', water: '#6cc4e8' };
+const MAP_WINTER = { grass: '#dde5ec', road: '#c9bea9', plot: '#eef3f7', water: '#bfe0ee' };
+
 export class Minimap {
   constructor(canvas, world) {
     this.canvas = canvas;
@@ -181,10 +185,11 @@ export class Minimap {
     off.height = this.canvas.height;
     const g = off.getContext('2d');
     const w = this.world;
-    g.fillStyle = '#7fbf5c';
+    const c = SEASON.snow ? MAP_WINTER : MAP_COLORS;
+    g.fillStyle = c.grass;
     g.fillRect(0, 0, off.width, off.height);
     // roads
-    g.fillStyle = '#e6d2a8';
+    g.fillStyle = c.road;
     const roadW = 5;
     for (let k = 0; k <= w.cols; k++) {
       const x = -w.W / 2 + k * 30;
@@ -205,7 +210,7 @@ export class Minimap {
     g.textBaseline = 'middle';
     g.font = `bold ${fontCss * this.dpr}px ${family}`;
     for (const f of w.farms) {
-      g.fillStyle = '#a6d97c';
+      g.fillStyle = c.plot;
       g.fillRect(this.mx(f.cx - 11), this.mz(f.cz - 11), 22 * this.sx, 22 * this.sz);
       g.fillStyle = f.accent;
       g.fillRect(this.mx(f.cx - 11), this.mz(f.cz - 11), 22 * this.sx, 4 * this.sz);
@@ -218,12 +223,12 @@ export class Minimap {
     const p = w.plaza;
     g.fillStyle = '#efe7d6';
     g.fillRect(this.mx(p.cx - 12), this.mz(p.cz - 12), 24 * this.sx, 24 * this.sz);
-    g.fillStyle = '#6cc4e8';
+    g.fillStyle = c.water;
     g.fillRect(this.mx(p.cx - 2.3), this.mz(p.cz - 3.3), 4.6 * this.sx, 4.6 * this.sz);
     // ponds
-    for (const c of w.spare) {
-      g.fillStyle = '#6cc4e8';
-      g.fillRect(this.mx(c.x - 6), this.mz(c.z - 4), 12 * this.sx, 8 * this.sz);
+    for (const cell of w.spare) {
+      g.fillStyle = c.water;
+      g.fillRect(this.mx(cell.x - 6), this.mz(cell.z - 4), 12 * this.sx, 8 * this.sz);
     }
     this.base = off;
   }

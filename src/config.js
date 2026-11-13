@@ -35,6 +35,16 @@ export const CONFIG = {
   // 지금은 머더 미스터리 시리즈 7개다. 누군가와 함께하면 plays 에 기록하고, 원하면 여기서 뺀다.
   roaming: ['wendy', 'bluemoon', 'werewolf', 'eida', 'giantbird', 'hero', 'suspect'],
 
+  // 계절 테마가 나타나는 기간이다. 한국 시간 기준 'MM-DD' 이고 시작일과 끝일을 모두 포함하며 해마다 되풀이한다.
+  // 날짜는 페이지를 열 때 한 번 확인한다. 기간에 들어선 뒤 새로 고침하면 테마가 보인다.
+  // snow 는 눈 덮인 마을, 내리는 눈, 눈사람, 얼어붙은 연못이다. 02-29 는 2월 마지막 날까지라는 뜻이다.
+  // christmas 는 광장의 크리스마스 트리, 집의 꼬마전구와 문 장식, 구름의 산타 모자다.
+  // 로컬 개발 화면(npm run dev)에서는 주소 뒤에 ?season=christmas, ?season=snow, ?season=off 를 붙여 날짜와 관계없이 미리 본다.
+  seasons: {
+    snow: { from: '12-04', to: '02-29' },
+    christmas: { from: '12-04', to: '12-25' },
+  },
+
   // false 이면 같은 이름은 항상 같은 동물과 같은 농장 모습을 가진다.
   // true 이면 접속할 때마다 동물과 농장 모습이 새로 정해진다.
   shuffleEachVisit: false,

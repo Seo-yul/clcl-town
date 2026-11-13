@@ -1,8 +1,9 @@
 import * as THREE from 'three';
 import { Voxels, textTexture, voxelMaterial } from './voxel.js';
 import { makeRng } from './rng.js';
-import { ANIMALS, GAMES, addTree, addFlower, FLOWER_COLORS, createMascot } from './models.js';
+import { ANIMALS, GAMES, addTree, addFlower, FLOWER_COLORS, createMascot, SNOW } from './models.js';
 import { Animal, separate } from './animals.js';
+import { SEASON } from './season.js';
 
 export const CELL = 30; // one grid cell: plot + half a road on each side
 const PLOT = 22; // fenced farm size
@@ -24,6 +25,31 @@ const COLOR = {
   waterDeep: '#58b3dd',
   sand: '#ead9a6',
 };
+
+// Snow season: the same town under snow. Fields and verges are covered, roads are
+// trodden snow, and the water is ice. buildWorld swaps these in before building.
+const WINTER = {
+  grass: '#e2e9ef',
+  plotGrass: '#ecf1f5',
+  road: '#cdc2ad',
+  pebble: '#b3a893',
+  path: '#d8cebe',
+  soil: '#e6ecf1',
+  soilRidge: '#f3f6f9',
+  water: '#cde6f0',
+  waterDeep: '#bcdcea',
+  sand: '#e8edf1',
+};
+
+// Christmas lights. Bulbs go into two meshes that twinkle in turn.
+const BULB_COLORS = ['#ff5252', '#ffd54a', '#4fc3ff', '#7ee86a', '#ff8ad8'];
+
+/**
+ * Seeded random calls decide each farm's look, so the winter build must make exactly the
+ * same calls as the normal one. Things hidden in winter (crops, lily pads) are still built,
+ * into this throwaway builder, so the random sequence does not shift.
+ */
+const discard = () => new Voxels();
 
 export const CROPS = {
   carrot: { name: '당근', emoji: '🥕' },
@@ -104,6 +130,7 @@ function gamesByOwner(plays, owners) {
 }
 
 export function buildWorld(scene, owners, { seed, shuffle, animalsPerFarm = 1, plays = [], roaming = [] }) {
+  if (SEASON.snow) Object.assign(COLOR, WINTER);
   const L = layout(owners.length);
   const ownerGames = gamesByOwner(plays, owners);
   const W = L.cols * CELL;
@@ -118,6 +145,7 @@ export function buildWorld(scene, owners, { seed, shuffle, animalsPerFarm = 1, p
   const statics = new Voxels();
   const worldRng = makeRng(`${seed}|world`);
   const lampHeads = new Voxels();
+  const decor = SEASON.christmas ? { bulbs: [new Voxels(), new Voxels()] } : null;
 
   const addCollider = (cx, cz, w, d, h = 10) => {
     colliders.push({ minX: cx - w / 2, maxX: cx + w / 2, minZ: cz - d / 2, maxZ: cz + d / 2, h });
@@ -162,6 +190,7 @@ export function buildWorld(scene, owners, { seed, shuffle, animalsPerFarm = 1, p
       statics.box(lx, 0, lz, 0.4, 0.3, 0.4, '#4a5a4c');
       statics.box(lx, 0.3, lz, 0.18, 2.6, 0.18, '#4a5a4c');
       statics.box(lx, 2.9, lz, 0.6, 0.12, 0.6, '#3c4a3e');
+      if (SEASON.snow) statics.box(lx, 3.02, lz, 0.64, 0.08, 0.64, SNOW);
       lampHeads.box(lx, 2.42, lz, 0.42, 0.48, 0.42, '#fff3c4');
       statics.box(lx, 2.36, lz, 0.5, 0.06, 0.5, '#3c4a3e');
       addCollider(lx, lz, 0.5, 0.5, 3.2);
@@ -197,7 +226,7 @@ export function buildWorld(scene, owners, { seed, shuffle, animalsPerFarm = 1, p
   owners.forEach((owner, i) => {
     const cell = L.farmCells[i];
     const rng = makeRng(shuffle ? `${seed}|${owner}|${Math.random()}` : `${seed}|${owner}`);
-    const farm = buildFarm(scene, cell, owner, i, rng, addCollider, animalsPerFarm, ownerGames.get(owner) || []);
+    const farm = buildFarm(scene, cell, owner, i, rng, addCollider, animalsPerFarm, ownerGames.get(owner) || [], decor);
     farms.push(farm);
     for (const a of farm.animals) {
       scene.add(a.object);
@@ -209,7 +238,7 @@ export function buildWorld(scene, owners, { seed, shuffle, animalsPerFarm = 1, p
   });
 
   // --- plaza ---
-  const plaza = buildPlaza(scene, statics, L.plaza, worldRng, addCollider, updaters);
+  const plaza = buildPlaza(scene, statics, L.plaza, worldRng, addCollider, updaters, decor);
   // A few animals wander the open plaza tiles east and west of the fountain.
   const P = L.plaza;
   const plazaHerds = [
@@ -283,12 +312,42 @@ export function buildWorld(scene, owners, { seed, shuffle, animalsPerFarm = 1, p
   const lamps = lampHeads.mesh(lampMaterial, { cast: false, receive: false });
   scene.add(lamps);
 
+  // Christmas lights: unlit so they read as glowing, brighter and twinkling after dark.
+  let glow = 0;
+  let setDecorGlow = () => {};
+  if (decor) {
+    const mats = decor.bulbs.map((b) => {
+      const m = new THREE.MeshBasicMaterial({ vertexColors: true });
+      scene.add(b.mesh(m, { cast: false, receive: false }));
+      return m;
+    });
+    // Warm light from the plaza tree on the snow around it, only after dark.
+    const treeLight = new THREE.PointLight('#ffcf8a', 0, 18, 1.4);
+    treeLight.position.set(plaza.tree.x, 3.2, plaza.tree.z + 1.2);
+    scene.add(treeLight);
+    setDecorGlow = (level) => {
+      glow = level;
+      treeLight.intensity = level * 28;
+    };
+    updaters.push((dt, t) => {
+      const wave = Math.sin(t * 2.4);
+      const base = 0.8 + glow * 0.25;
+      const amp = 0.12 + glow * 0.5;
+      mats[0].color.setScalar(base + amp * wave);
+      mats[1].color.setScalar(base - amp * wave);
+    });
+  }
+
   const bounds = { minX: -W / 2 - 2.5, maxX: W / 2 + 2.5, minZ: -D / 2 - 2.5, maxZ: D / 2 + 2.5 };
 
   return {
     W, D, cols: L.cols, rows: L.rows,
     farms, plaza, animals, colliders, interactables, areas, bounds, lampMaterial,
     spare: L.spare,
+    /** Called by the sky with the time of day's lamp level (0 by day, 1 at night). */
+    setLights(lamps) {
+      setDecorGlow(lamps);
+    },
     spawn: new THREE.Vector3(L.plaza.x, 0, L.plaza.z + 7),
     areaAt(x, z) {
       for (const a of areas) {
@@ -339,7 +398,7 @@ function pickAnimals(rng, count) {
   return [...byType.values()];
 }
 
-function buildFarm(scene, cell, owner, index, rng, addCollider, animalCount, games) {
+function buildFarm(scene, cell, owner, index, rng, addCollider, animalCount, games, decor) {
   const cx = cell.x;
   const cz = cell.z;
   const v = new Voxels();
@@ -366,6 +425,10 @@ function buildFarm(scene, cell, owner, index, rng, addCollider, animalCount, gam
   v.box(cx, 2.75, cz + H, 5.1, 0.28, 0.4, COLOR.woodDark);
   v.box(cx, 3.03, cz + H, 4.4, 0.95, 0.14, COLOR.wood);
   v.box(cx, 3.0, cz + H, 4.6, 0.08, 0.18, accent);
+  if (SEASON.snow) {
+    v.box(cx, 3.98, cz + H, 4.48, 0.1, 0.22, SNOW);
+    mirrorX((s) => v.box(cx + s * 2.38, 3.03, cz + H, 0.42, 0.08, 0.44, SNOW));
+  }
   const sign = new THREE.Mesh(
     new THREE.PlaneGeometry(4.1, 0.85),
     new THREE.MeshLambertMaterial({ map: textTexture(owner, { font: 'bold 68px Galmuri11', color: '#3b2a1e' }), transparent: true }),
@@ -382,7 +445,7 @@ function buildFarm(scene, cell, owner, index, rng, addCollider, animalCount, gam
   // barn / cottage
   // Tall props go in their own mesh so they can fade when the player walks behind them.
   const tall = new Voxels();
-  buildHouse(tall, bx, bz, style, rng);
+  buildHouse(tall, bx, bz, style, rng, decor);
   addCollider(bx, bz, 7.2, 6.2, 8);
 
   // crop field
@@ -403,7 +466,7 @@ function buildFarm(scene, cell, owner, index, rng, addCollider, animalCount, gam
   // trough and hay bales between the barn strip and the pasture
   const tx = cx - side * 4.5;
   v.box(tx, 0, cz - 3.0, 1.9, 0.5, 0.75, COLOR.woodDark);
-  v.box(tx, 0.1, cz - 3.0, 1.6, 0.42, 0.5, '#7cc8ea');
+  v.box(tx, 0.1, cz - 3.0, 1.6, 0.42, 0.5, SEASON.snow ? '#d4ecf5' : '#7cc8ea');
   addCollider(tx, cz - 3.0, 1.9, 0.75, 0.5);
   const hx = cx + side * 9.4;
   buildHayBale(v, hx, cz - 2.9);
@@ -419,7 +482,11 @@ function buildFarm(scene, cell, owner, index, rng, addCollider, animalCount, gam
     const z = cz + rng.range(-1.5, 10);
     if (Math.abs(x - cx) < 1.2) continue;
     if (rng.chance(0.3)) addFlower(v, x, z, rng.pick(FLOWER_COLORS));
-    else v.box(x, 0, z, 0.12, rng.range(0.2, 0.35), 0.12, '#6fae4c');
+    else {
+      const h = rng.range(0.2, 0.35);
+      if (SEASON.snow) v.box(x, 0, z, 0.3, 0.1, 0.24, SNOW);
+      else v.box(x, 0, z, 0.12, h, 0.12, '#6fae4c');
+    }
   }
 
   scene.add(v.mesh());
@@ -462,17 +529,26 @@ function mirrorX(fn) {
 
 function buildFence(v, cx, cz, color) {
   const postW = 0.24;
+  const snow = SEASON.snow;
   const rail = (x, z, len, alongX) => {
     for (const y of [0.4, 0.78]) {
       if (alongX) v.box(x, y, z, len, 0.12, 0.1, color);
       else v.box(x, y, z, 0.1, 0.12, len, color);
     }
+    if (snow) {
+      if (alongX) v.box(x, 0.9, z, len, 0.05, 0.13, SNOW);
+      else v.box(x, 0.9, z, 0.13, 0.05, len, SNOW);
+    }
+  };
+  const post = (x, z) => {
+    v.box(x, 0, z, postW, 1.05, postW, color);
+    if (snow) v.box(x, 1.05, z, postW + 0.04, 0.08, postW + 0.04, SNOW);
   };
   for (let t = -H; t <= H + 0.001; t += 2) {
-    v.box(cx + t, 0, cz - H, postW, 1.05, postW, color); // back
-    v.box(cx - H, 0, cz + t, postW, 1.05, postW, color); // left
-    v.box(cx + H, 0, cz + t, postW, 1.05, postW, color); // right
-    if (Math.abs(t) > 2.2) v.box(cx + t, 0, cz + H, postW, 1.05, postW, color); // front
+    post(cx + t, cz - H); // back
+    post(cx - H, cz + t); // left
+    post(cx + H, cz + t); // right
+    if (Math.abs(t) > 2.2) post(cx + t, cz + H); // front
   }
   rail(cx, cz - H, PLOT, true);
   rail(cx - H, cz, PLOT, false);
@@ -481,7 +557,7 @@ function buildFence(v, cx, cz, color) {
   rail(cx + (H + 2.3) / 2, cz + H, H - 2.3, true);
 }
 
-function buildHouse(v, bx, bz, st, rng) {
+function buildHouse(v, bx, bz, st, rng, decor) {
   const Wd = 7;
   const Dp = 6;
   const front = bz + Dp / 2;
@@ -499,7 +575,24 @@ function buildHouse(v, bx, bz, st, rng) {
     const y = 3.3 + i * 0.45;
     v.box(bx, y, bz, w, 0.45, Dp + 0.6, st.roof, { jitter: 0.03 });
     if (w - 1 > 0.2) v.box(bx, y, bz, w - 1, 0.44, Dp + 0.66, st.wall);
+    if (SEASON.snow) {
+      // Snow on each step's exposed tread; the next step covers the middle.
+      const next = widths[i + 1];
+      if (next) mirrorX((s) => v.box(bx + s * (w + next) / 4, y + 0.45, bz, (w - next) / 2, 0.12, Dp + 0.64, SNOW));
+      else v.box(bx, y + 0.45, bz, w + 0.04, 0.16, Dp + 0.64, SNOW);
+    }
   });
+  if (decor) {
+    // Fairy lights along the front eave, sagging a little between hooks.
+    const zf = front + 0.36;
+    v.box(bx, 3.27, zf, 7.8, 0.03, 0.03, '#2f3b2f');
+    for (let i = 0; i <= 16; i++) {
+      const sag = i % 4 === 2 ? 0.1 : i % 2 ? 0.05 : 0;
+      decor.bulbs[i % 2].box(bx - 3.84 + i * 0.48, 3.08 - sag, zf, 0.15, 0.18, 0.15, BULB_COLORS[i % BULB_COLORS.length]);
+    }
+    // Wreath on the door.
+    addWreath(v, bx, st.kind === 'barn' ? 1.5 : 1.55, front + (st.kind === 'barn' ? 0.12 : 0.08));
+  }
 
   if (st.kind === 'barn') {
     // big door with an X brace
@@ -533,7 +626,21 @@ function buildHouse(v, bx, bz, st, rng) {
     }
     v.box(bx + 1.8, 4.2, bz - 1.2, 0.8, 2.4, 0.8, '#b0645a');
     v.box(bx + 1.8, 6.6, bz - 1.2, 0.95, 0.2, 0.95, '#8f4f47');
+    if (SEASON.snow) v.box(bx + 1.8, 6.8, bz - 1.2, 0.99, 0.1, 0.99, SNOW);
   }
+}
+
+/** A small Christmas wreath with a red bow, centered at (x, y) on a wall facing +z. */
+function addWreath(v, x, y, z) {
+  const g = '#2f8a4a';
+  const r = 0.3;
+  v.box(x, y + r - 0.08, z, 0.44, 0.16, 0.06, g);
+  v.box(x, y - r - 0.08, z, 0.44, 0.16, 0.06, g);
+  mirrorX((s) => v.box(x + s * r, y - 0.22, z, 0.16, 0.44, 0.06, g));
+  mirrorX((s) => mirrorX((t) => v.box(x + s * 0.21, y + t * 0.21 - 0.07, z, 0.14, 0.14, 0.06, '#3a9a55')));
+  for (const [dx, dy] of [[-0.24, 0.12], [0.27, -0.05], [0.05, 0.28]]) v.box(x + dx, y + dy - 0.05, z + 0.03, 0.08, 0.08, 0.04, '#e53b3b');
+  v.box(x, y - r - 0.12, z + 0.04, 0.26, 0.16, 0.05, '#d92e2e');
+  mirrorX((s) => v.box(x + s * 0.08, y - r - 0.32, z + 0.04, 0.07, 0.22, 0.04, '#d92e2e'));
 }
 
 function buildSilo(v, x, z, rng) {
@@ -551,25 +658,40 @@ function buildSilo(v, x, z, rng) {
   v.box(x, 5, z, 2.1, 0.4, 2.1, roof);
   v.box(x, 5.4, z, 1.5, 0.35, 1.5, roof);
   v.box(x, 5.75, z, 0.9, 0.3, 0.9, roof);
+  if (SEASON.snow) {
+    v.box(x, 5.4, z, 2.14, 0.08, 2.14, SNOW);
+    v.box(x, 5.75, z, 1.54, 0.08, 1.54, SNOW);
+    v.box(x, 6.05, z, 0.94, 0.14, 0.94, SNOW);
+  }
 }
 
 function buildHayBale(v, x, z) {
   v.box(x, 0, z, 1.05, 0.8, 0.85, '#e8c45a', { jitter: 0.04 });
   v.box(x - 0.25, 0, z, 0.08, 0.82, 0.87, '#c9a23f');
   v.box(x + 0.25, 0, z, 0.08, 0.82, 0.87, '#c9a23f');
+  if (SEASON.snow) v.box(x, 0.82, z, 1.07, 0.1, 0.89, SNOW);
 }
 
 function buildHayStack(v, x, z) {
   v.box(x, 0, z, 2.6, 0.9, 2.0, '#e8c45a', { jitter: 0.04 });
   v.box(x, 0.9, z, 2.0, 0.6, 1.5, '#efce6a', { jitter: 0.04 });
   v.box(x, 1.5, z, 1.2, 0.4, 0.9, '#f3d77a', { jitter: 0.04 });
+  if (SEASON.snow) {
+    v.box(x, 0.9, z, 2.64, 0.08, 2.04, SNOW);
+    v.box(x, 1.5, z, 2.04, 0.08, 1.54, SNOW);
+    v.box(x, 1.9, z, 1.24, 0.14, 0.94, SNOW);
+  }
 }
 
-function buildCrops(v, fx, fz, kind, rng) {
-  v.box(fx, 0, fz, 8.2, 0.16, 6.2, COLOR.soil);
+function buildCrops(field, fx, fz, kind, rng) {
+  field.box(fx, 0, fz, 8.2, 0.16, 6.2, COLOR.soil);
+  // In the snow season the field is a blanket of snow with ridges showing the rows,
+  // and the plants go to a builder that is thrown away.
+  const snow = SEASON.snow;
+  const v = snow ? discard() : field;
   const rows = [-3, -1, 1, 3];
   for (const ox of rows) {
-    v.box(fx + ox, 0.16, fz, 0.9, 0.08, 5.8, COLOR.soilRidge);
+    field.box(fx + ox, 0.16, fz, 0.9, snow ? 0.16 : 0.08, 5.8, COLOR.soilRidge);
     for (let k = 0; k < 6; k++) {
       const px = fx + ox;
       const pz = fz - 2.5 + k;
@@ -619,7 +741,7 @@ function buildCrops(v, fx, fz, kind, rng) {
       }
     }
   }
-  if (rng.chance(0.45)) buildScarecrow(v, fx + rng.pick([-2, 0, 2]), fz + 3.1);
+  if (rng.chance(0.45)) buildScarecrow(field, fx + rng.pick([-2, 0, 2]), fz + 3.1);
 }
 
 function buildScarecrow(v, x, z) {
@@ -631,13 +753,86 @@ function buildScarecrow(v, x, z) {
   v.box(x + 0.1, 1.72, z + 0.205, 0.07, 0.07, 0.02, '#3b2a20');
   v.box(x, 1.98, z, 0.9, 0.06, 0.8, '#ecc96d');
   v.box(x, 2.0, z, 0.5, 0.24, 0.46, '#ecc96d');
+  if (SEASON.snow) v.box(x, 2.24, z, 0.52, 0.08, 0.48, SNOW);
+}
+
+/** A snowman with a scarf and a bucket hat, facing +z. */
+function buildSnowman(v, x, z) {
+  const W = '#fbfdff';
+  v.box(x, 0, z, 1.2, 0.95, 1.2, W);
+  v.box(x, 0.12, z, 1.42, 0.7, 1.0, W);
+  v.box(x, 0.12, z, 1.0, 0.7, 1.42, W);
+  v.box(x, 0.9, z, 0.92, 0.72, 0.92, W);
+  v.box(x, 1.0, z, 1.06, 0.52, 0.76, W);
+  v.box(x, 1.0, z, 0.76, 0.52, 1.06, W);
+  v.box(x, 1.66, z, 0.72, 0.62, 0.72, W);
+  // scarf
+  v.box(x, 1.56, z, 0.84, 0.16, 0.84, '#d93a3a');
+  v.box(x + 0.24, 1.18, z + 0.43, 0.18, 0.42, 0.06, '#d93a3a');
+  // face and buttons
+  mirrorX((s) => v.box(x + s * 0.15, 1.98, z + 0.36, 0.09, 0.09, 0.02, '#2b2a3d'));
+  v.box(x, 1.84, z + 0.5, 0.1, 0.1, 0.3, '#f08a24');
+  for (const y of [1.15, 1.35]) v.box(x, y, z + 0.47, 0.09, 0.09, 0.02, '#2b2a3d');
+  // twig arms
+  mirrorX((s) => v.box(x + s * 0.8, 1.28, z, 0.7, 0.07, 0.07, '#6b4a35', { rz: s * 0.45, center: true }));
+  // bucket hat
+  v.box(x, 2.28, z, 0.66, 0.08, 0.66, '#3d4a63');
+  v.box(x, 2.36, z, 0.5, 0.34, 0.5, '#4f6b8a');
+  v.box(x, 2.7, z, 0.54, 0.06, 0.54, SNOW);
+}
+
+/** The plaza Christmas tree: stepped tiers with snow, ornaments, a star and twinkling bulbs. */
+function buildChristmasTree(v, bulbs, x, z) {
+  const rng = makeRng('christmas-tree');
+  v.box(x, 0, z, 0.8, 1.2, 0.8, '#7a4b2b');
+  const tiers = [4.6, 3.9, 3.2, 2.5, 1.8, 1.1, 0.5];
+  let n = 0;
+  tiers.forEach((w, i) => {
+    const y = 0.8 + i * 0.8;
+    v.box(x, y, z, w, 0.95, w, i % 2 ? '#2f7d45' : '#358a4c', { jitter: 0.05 });
+    if (SEASON.snow) v.box(x, y + 0.95, z, w + 0.04, 0.1, w + 0.04, SNOW);
+    if (w < 1) return;
+    const half = w / 2 + 0.06;
+    const per = Math.max(2, Math.round(w / 0.62));
+    for (let k = 0; k < per; k++) {
+      const along = -w / 2 + (w * (k + 0.5)) / per;
+      for (const [dx, dz] of [[along, half], [along, -half], [half, along], [-half, along]]) {
+        bulbs[n % 2].box(x + dx, y + 0.1, z + dz, 0.15, 0.15, 0.15, BULB_COLORS[n % BULB_COLORS.length]);
+        n += 1;
+      }
+    }
+    // ornaments
+    for (let k = 0; k < 3; k++) {
+      const side = rng.int(0, 3);
+      const along = rng.range(-w / 2 + 0.3, w / 2 - 0.3);
+      const ox = side === 0 ? along : side === 1 ? along : side === 2 ? half : -half;
+      const oz = side === 0 ? half : side === 1 ? -half : along;
+      v.box(x + ox, y + 0.45, z + oz, 0.26, 0.26, 0.26, rng.pick(['#d93a3a', '#f2c94c', '#3f7fd9', '#e6ebf2']));
+    }
+  });
+  // star
+  const top = 0.8 + tiers.length * 0.8 + 0.2;
+  const star = '#ffe066';
+  bulbs[0].box(x, top, z, 0.22, 1.0, 0.16, star);
+  bulbs[0].box(x, top + 0.42, z, 1.0, 0.22, 0.16, star);
+  bulbs[0].box(x, top + 0.53, z, 0.5, 0.5, 0.16, star, { rz: Math.PI / 4, center: true });
+  // presents in front
+  [[-1.35, 2.75, 0.7, 0.6, '#d93a3a', '#f2c94c'], [0.0, 2.9, 0.8, 0.5, '#3f7fd9', '#ffffff'], [1.3, 2.7, 0.6, 0.7, '#3a9a55', '#d93a3a']].forEach(
+    ([dx, dz, s, h, box, ribbon]) => {
+      v.box(x + dx, 0, z + dz, s, h, s, box);
+      v.box(x + dx, 0, z + dz, 0.12, h + 0.02, s + 0.02, ribbon);
+      v.box(x + dx, 0, z + dz, s + 0.02, h + 0.02, 0.12, ribbon);
+      v.box(x + dx, h, z + dz, 0.3, 0.12, 0.12, ribbon);
+    },
+  );
 }
 
 // ---------------------------------------------------------------------------
 // Plaza: fountain with the cloud mascot, windmill, notice board, welcome arch.
 // ---------------------------------------------------------------------------
 
-function buildPlaza(scene, v, cell, rng, addCollider, updaters) {
+function buildPlaza(scene, v, cell, rng, addCollider, updaters, decor) {
+  const snow = SEASON.snow;
   const cx = cell.x;
   const cz = cell.z;
   for (let i = -6; i < 6; i++) {
@@ -674,14 +869,23 @@ function buildPlaza(scene, v, cell, rng, addCollider, updaters) {
     dropList.push({ m, a: (k / 10) * Math.PI * 2, off: k / 10 });
   }
   drops.position.set(cx, 0, fz);
-  scene.add(drops);
-  updaters.push((dt, t) => {
-    for (const d of dropList) {
-      const p = (t * 0.8 + d.off) % 1;
-      const r = 0.2 + p * 1.1;
-      d.m.position.set(Math.cos(d.a) * r, 1.85 + Math.sin(p * Math.PI) * 0.8 - p * 1.2, Math.sin(d.a) * r);
+  // The fountain is frozen in the snow season, so it has no spray.
+  if (!snow) {
+    scene.add(drops);
+    updaters.push((dt, t) => {
+      for (const d of dropList) {
+        const p = (t * 0.8 + d.off) % 1;
+        const r = 0.2 + p * 1.1;
+        d.m.position.set(Math.cos(d.a) * r, 1.85 + Math.sin(p * Math.PI) * 0.8 - p * 1.2, Math.sin(d.a) * r);
+      }
+    });
+  } else {
+    // snow along the stone rim
+    for (const s of [-1, 1]) {
+      v.box(cx, 0.65, fz + s * 2.12, 4.64, 0.08, 0.38, SNOW);
+      v.box(cx + s * 2.12, 0.65, fz, 0.38, 0.08, 4.64, SNOW);
     }
-  });
+  }
 
   // windmill
   const wx = cx - 7.6;
@@ -691,7 +895,13 @@ function buildPlaza(scene, v, cell, rng, addCollider, updaters) {
   v.box(wx, 3.4, wz, 3.2, 2.4, 3.2, '#f1eade');
   v.box(wx, 5.8, wz, 2.8, 1.6, 2.8, '#eee6d8');
   const roof = '#c7513f';
-  [[3.4, 0.5], [2.6, 0.5], [1.7, 0.5], [0.8, 0.45]].forEach(([w, h], i) => v.box(wx, 7.4 + i * 0.5, wz, w, h, w, roof));
+  [[3.4, 0.5], [2.6, 0.5], [1.7, 0.5], [0.8, 0.45]].forEach(([w, h], i) => {
+    v.box(wx, 7.4 + i * 0.5, wz, w, h, w, roof);
+    if (snow) v.box(wx, 7.4 + i * 0.5 + h, wz, w + 0.04, i === 3 ? 0.16 : 0.1, w + 0.04, SNOW);
+  });
+  if (snow) {
+    for (const [y, w] of [[1.0, 4.2], [3.4, 3.6], [5.8, 3.2]]) v.box(wx, y, wz, w + 0.04, 0.1, w + 0.04, SNOW);
+  }
   v.box(wx, 1.0, wz + 1.81, 1.1, 1.7, 0.04, '#7a4b2b');
   v.box(wx, 4.0, wz + 1.61, 0.8, 0.8, 0.04, '#bfe3f2');
   v.box(wx, 6.2, wz + 1.6, 0.6, 0.6, 0.6, '#6b4a35');
@@ -726,6 +936,10 @@ function buildPlaza(scene, v, cell, rng, addCollider, updaters) {
   v.box(cx, 3.9, az, 6.0, 1.3, 0.2, '#fffaf0');
   v.box(cx, 3.84, az, 6.3, 0.12, 0.26, '#6fbdf2');
   v.box(cx, 5.2, az, 6.3, 0.12, 0.26, '#6fbdf2');
+  if (snow) {
+    v.box(cx, 5.32, az, 6.34, 0.14, 0.3, SNOW);
+    mirrorX((s) => v.box(cx + s * 3.5, 3.9, az, 1.04, 0.1, 0.54, SNOW));
+  }
   const welcome = new THREE.Mesh(
     new THREE.PlaneGeometry(5.8, 1.25),
     new THREE.MeshLambertMaterial({ map: textTexture('☁ 클클 타운 ☁', { width: 768, height: 160, font: 'bold 92px Galmuri11', color: '#2e4a7d' }), transparent: true }),
@@ -738,6 +952,7 @@ function buildPlaza(scene, v, cell, rng, addCollider, updaters) {
   for (const s of [-1, 1]) v.box(board.x + s * 1.3, 0, board.z, 0.22, 2.4, 0.22, COLOR.woodDark);
   v.box(board.x, 0.9, board.z, 3.0, 1.5, 0.18, COLOR.wood);
   v.box(board.x, 2.4, board.z, 3.4, 0.2, 0.5, '#c7513f');
+  if (snow) v.box(board.x, 2.6, board.z, 3.44, 0.12, 0.54, SNOW);
   [[-0.9, 1.2, '#fffaf0'], [0.05, 1.25, '#fff1a8'], [0.95, 1.05, '#d9f0ff'], [-0.35, 1.0, '#ffe0e6']].forEach(([dx, y, c]) => {
     v.box(board.x + dx, y, board.z + 0.1, 0.6, 0.55, 0.02, c);
   });
@@ -755,26 +970,45 @@ function buildPlaza(scene, v, cell, rng, addCollider, updaters) {
     v.box(x + 1.6, 0, z, 0.2, 0.45, 0.6, COLOR.woodDark);
     v.box(x + 0.8, 0.45, z, 2.2, 0.12, 0.7, COLOR.wood);
     v.box(x + 0.8, 0.57, z - 0.32, 2.2, 0.55, 0.1, COLOR.wood);
+    if (snow) v.box(x + 0.8, 0.57, z + 0.04, 2.2, 0.07, 0.6, SNOW);
     addCollider(x + 0.8, z, 2.2, 0.8, 0.6);
   }
 
-  // flower beds
+  // flower beds (under snow in the snow season)
   for (const [x, z] of [[cx - 8.6, cz + 1.5], [cx + 7.5, cz - 4.6], [cx - 3.2, cz + 8.6], [cx + 3.2, cz + 8.6]]) {
     v.box(x, 0, z, 3.0, 0.35, 1.8, '#b9a98c');
-    v.box(x, 0, z, 2.7, 0.4, 1.5, COLOR.soil);
+    v.box(x, 0, z, 2.7, snow ? 0.46 : 0.4, 1.5, COLOR.soil);
     for (let k = 0; k < 9; k++) {
-      v.box(x - 1.0 + (k % 3) * 1.0, 0.4, z - 0.45 + Math.floor(k / 3) * 0.45, 0.28, 0.24, 0.28, rng.pick(FLOWER_COLORS));
+      const color = rng.pick(FLOWER_COLORS);
+      if (!snow) v.box(x - 1.0 + (k % 3) * 1.0, 0.4, z - 0.45 + Math.floor(k / 3) * 0.45, 0.28, 0.24, 0.28, color);
     }
     addCollider(x, z, 3.0, 1.8, 0.4);
   }
 
-  // trees in the corners
-  for (const [x, z] of [[cx + 9.6, cz - 9.4], [cx - 10, cz + 9.6], [cx + 10, cz + 9.6]]) {
+  // Trees in the corners. In the Christmas season the north-east one makes way for the
+  // Christmas tree, which stands where the camera sees it without hiding the player.
+  const tree = { x: cx + 9.2, z: cz - 9.0 };
+  [[cx + 9.6, cz - 9.4], [cx - 10, cz + 9.6], [cx + 10, cz + 9.6]].forEach(([x, z], i) => {
+    if (decor && i === 0) {
+      addTree(discard(), x, z, rng, 'round', 0.95);
+      buildChristmasTree(v, decor.bulbs, tree.x, tree.z);
+      addCollider(tree.x, tree.z, 4.6, 4.6, 8);
+      addCollider(tree.x, tree.z + 2.75, 3.6, 0.9, 0.8);
+      return;
+    }
     addTree(v, x, z, rng, 'round', 0.95);
     addCollider(x, z, 0.8, 0.8, 8);
+  });
+
+  // snowmen on the open corners of the plaza
+  if (snow) {
+    for (const [x, z] of [[cx - 9.6, cz + 5.6], [cx + 7.6, cz + 8.2]]) {
+      buildSnowman(v, x, z);
+      addCollider(x, z, 1.3, 1.3, 2.8);
+    }
   }
 
-  return { cx, cz, board, labelAnchor: new THREE.Vector3(cx, 7.8, fz) };
+  return { cx, cz, board, tree, labelAnchor: new THREE.Vector3(cx, 7.8, fz) };
 }
 
 // ---------------------------------------------------------------------------
@@ -789,22 +1023,37 @@ function buildMeadow(v, cell, rng, addCollider) {
   v.box(cx, 0, cz, 12.4, 0.08, 6.2, COLOR.water);
   v.box(cx, 0, cz, 10.4, 0.08, 8.2, COLOR.water);
   v.box(cx, 0, cz, 8, 0.09, 5, COLOR.waterDeep);
+  // The pond is frozen in the snow season: no lily pads, dry reeds.
+  const snow = SEASON.snow;
+  const pads = snow ? discard() : v;
   for (let k = 0; k < 6; k++) {
-    v.box(cx + rng.range(-4.5, 4.5), 0.08, cz + rng.range(-2.6, 2.6), 0.7, 0.03, 0.6, '#5fae4f');
+    pads.box(cx + rng.range(-4.5, 4.5), 0.08, cz + rng.range(-2.6, 2.6), 0.7, 0.03, 0.6, '#5fae4f');
   }
   for (let k = 0; k < 10; k++) {
     const a = rng.range(0, Math.PI * 2);
-    v.box(cx + Math.cos(a) * 6.3, 0, cz + Math.sin(a) * 4.2, 0.1, rng.range(0.6, 1.1), 0.1, '#6c9e3c');
+    v.box(cx + Math.cos(a) * 6.3, 0, cz + Math.sin(a) * 4.2, 0.1, rng.range(0.6, 1.1), 0.1, snow ? '#b5a273' : '#6c9e3c');
   }
   addCollider(cx, cz, 12.0, 6.0, 0.5);
   addCollider(cx, cz, 10.0, 8.0, 0.5);
 
+  const trees = [];
   for (let k = 0; k < 7; k++) {
     const a = rng.range(0, Math.PI * 2);
     const x = cx + Math.cos(a) * rng.range(8.5, 10.5);
     const z = cz + Math.sin(a) * rng.range(7.2, 10);
     addTree(v, x, z, rng, rng.chance(0.3) ? 'pine' : 'round', rng.range(0.85, 1.15));
     addCollider(x, z, 0.8, 0.8, 8);
+    trees.push([x, z]);
+  }
+
+  if (snow) {
+    // A snowman by the pond, on the first spot clear of the trees.
+    const spots = [[4.6, 7.0], [-4.6, 7.0], [8.4, 0], [-8.4, 0], [4.6, -7.0], [-4.6, -7.0]];
+    const spot = spots.find(([dx, dz]) => trees.every(([x, z]) => Math.hypot(x - (cx + dx), z - (cz + dz)) > 2.4));
+    if (spot) {
+      buildSnowman(v, cx + spot[0], cz + spot[1]);
+      addCollider(cx + spot[0], cz + spot[1], 1.3, 1.3, 2.8);
+    }
   }
   for (let k = 0; k < 30; k++) {
     const x = cx + rng.range(-11.5, 11.5);

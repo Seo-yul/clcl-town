@@ -2,6 +2,10 @@ import * as THREE from 'three';
 import { Voxels } from './voxel.js';
 import { addCloud } from './models.js';
 import { makeRng } from './rng.js';
+import { SEASON } from './season.js';
+
+// Light bounced off snow is brighter and cooler than off grass.
+const SNOW_BOUNCE = new THREE.Color('#dfe7ef');
 
 export const TIMES = {
   morning: {
@@ -81,6 +85,7 @@ export class Sky {
     this.key = key;
     this.hemi.color.set(p.hemiSky);
     this.hemi.groundColor.set(p.hemiGround);
+    if (SEASON.snow) this.hemi.groundColor.lerp(SNOW_BOUNCE, key === 'night' ? 0.3 : 0.6);
     this.hemi.intensity = p.hemiI;
     this.sun.color.set(p.sun);
     this.sun.intensity = p.sunI;
@@ -91,6 +96,7 @@ export class Sky {
     root.setProperty('--sky-bottom', p.bottom);
     document.documentElement.dataset.time = key;
     this.world.lampMaterial.emissive.set('#ffcf6e').multiplyScalar(p.lamps);
+    this.world.setLights(p.lamps);
     return p;
   }
 

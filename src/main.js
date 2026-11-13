@@ -5,6 +5,8 @@ import { buildWorld } from './world.js';
 import { Player } from './player.js';
 import { Sky, TIMES, TIME_ORDER, timeForHour } from './sky.js';
 import { Overlay, Minimap, Dialog, Prompt, toast, areaBanner, setupTouch } from './ui.js';
+import { initSeason } from './season.js';
+import { Snowfall } from './snowfall.js';
 
 const $ = (sel) => document.querySelector(sel);
 
@@ -45,6 +47,7 @@ liteBox.checked = lite;
 
 function applyQuality() {
   renderer.shadowMap.enabled = !lite;
+  snowfall?.setCount(lite ? 1600 : 4000);
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, lite ? 1 : 2));
   scene.traverse((o) => {
     if (o.material) o.material.needsUpdate = true;
@@ -75,6 +78,7 @@ async function fontsReady() {
 
 await fontsReady();
 
+const season = initSeason(CONFIG.seasons);
 const owners = resolveOwners();
 const world = buildWorld(scene, owners, {
   seed: CONFIG.seed,
@@ -88,6 +92,7 @@ scene.add(player.object);
 player.teleport(world.spawn.x, world.spawn.z, Math.PI);
 
 const sky = new Sky(scene, world);
+const snowfall = season.snow ? new Snowfall(scene, 4000) : null;
 let timeKey = timeForHour(new Date().getHours());
 sky.apply(timeKey);
 
@@ -417,6 +422,7 @@ renderer.setAnimationLoop(() => {
   sky.update(dt);
   updateCamera(dt, elapsed);
   sky.follow(state === 'intro' ? ORIGIN : camTarget);
+  snowfall?.update(dt, elapsed, state === 'intro' ? ORIGIN : camTarget);
 
   renderer.render(scene, camera);
   overlay.update(camera, window.innerWidth, window.innerHeight, elapsed);

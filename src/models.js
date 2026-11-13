@@ -1,5 +1,9 @@
 import * as THREE from 'three';
 import { Voxels, voxelMaterial } from './voxel.js';
+import { SEASON } from './season.js';
+
+/** Color of snow lying on things. */
+export const SNOW = '#f7fafc';
 
 // ---------------------------------------------------------------------------
 // Rig helpers. Every animated model is a root group with a body, a head pivot
@@ -617,6 +621,17 @@ function cloudRig() {
     });
     v.box(0, 0.11, 0.305, 0.12, 0.03, 0.02, INK);
   })));
+  if (SEASON.christmas) {
+    // Santa hat on the left puff, drooping to the right.
+    body.add(mesh(geo('club:cloud:santa', (v) => {
+      v.box(-0.12, 0.7, 0, 0.6, 0.12, 0.5, '#ffffff');
+      v.box(-0.12, 0.82, 0, 0.48, 0.18, 0.4, '#d93a3a');
+      v.box(-0.06, 1.0, 0, 0.34, 0.16, 0.3, '#d93a3a');
+      v.box(0.04, 1.16, 0, 0.22, 0.12, 0.2, '#c53030');
+      v.box(0.18, 1.2, 0, 0.16, 0.1, 0.15, '#c53030');
+      v.box(0.32, 1.13, 0, 0.15, 0.15, 0.15, '#ffffff');
+    })));
+  }
   const head = new THREE.Group();
   body.add(head);
   return rigOf(body, head, [], 0.45);
@@ -1006,6 +1021,7 @@ export function addTree(v, x, z, rng, kind = 'round', scale = 1) {
     v.box(x, 0, z, 0.5 * s, 1.2 * s, 0.5 * s, trunk);
     [[2.6, 0.9], [2.0, 0.9], [1.4, 0.9], [0.8, 0.8]].forEach(([w, h], i) => {
       v.box(x, (1.0 + i * 0.85) * s, z, w * s, h * s, w * s, leaf, { jitter: 0.06 });
+      if (SEASON.snow) v.box(x, (1.0 + i * 0.85) * s + h * s, z, w * s + 0.04, 0.12, w * s + 0.04, SNOW);
     });
     return;
   }
@@ -1015,6 +1031,12 @@ export function addTree(v, x, z, rng, kind = 'round', scale = 1) {
   v.box(x, 1.7 * s, z, 2.8 * s, 0.8 * s, 1.8 * s, leaf, { jitter: 0.05 });
   v.box(x, 1.7 * s, z, 1.8 * s, 0.8 * s, 2.8 * s, leaf, { jitter: 0.05 });
   v.box(x, 2.8 * s, z, 1.6 * s, 0.7 * s, 1.6 * s, leaf, { jitter: 0.08 });
+  if (SEASON.snow) {
+    v.box(x, 3.5 * s, z, 1.6 * s + 0.04, 0.16, 1.6 * s + 0.04, SNOW);
+    v.box(x, 2.8 * s, z, 2.4 * s + 0.04, 0.12, 2.4 * s + 0.04, SNOW);
+    v.box(x, 2.5 * s, z, 2.8 * s + 0.04, 0.1, 1.8 * s + 0.04, SNOW);
+    v.box(x, 2.5 * s, z, 1.8 * s + 0.04, 0.1, 2.8 * s + 0.04, SNOW);
+  }
   if (kind === 'apple') {
     for (let i = 0; i < 5; i++) {
       const a = rng.range(0, Math.PI * 2);
@@ -1024,6 +1046,11 @@ export function addTree(v, x, z, rng, kind = 'round', scale = 1) {
 }
 
 export function addFlower(v, x, z, color) {
+  if (SEASON.snow) {
+    // Flowers are under the snow; a little mound marks the spot.
+    v.box(x, 0, z, 0.34, 0.1, 0.28, SNOW);
+    return;
+  }
   v.box(x, 0, z, 0.06, 0.28, 0.06, '#4f9a3c');
   v.box(x, 0.28, z, 0.2, 0.14, 0.2, color);
   v.box(x, 0.3, z, 0.08, 0.15, 0.08, '#ffe066');
@@ -1059,6 +1086,15 @@ export function createMascot() {
     v.box(s * 1.05, -0.62, 0.905, 0.36, 0.16, 0.02, '#f7a8b8');
   });
   v.box(0, -0.6, 0.905, 0.4, 0.1, 0.02, INK);
+  if (SEASON.christmas) {
+    // Santa hat on the top puff, drooping to the right.
+    v.box(-0.45, 1.45, 0, 2.0, 0.36, 1.55, '#ffffff');
+    v.box(-0.45, 1.81, 0, 1.6, 0.6, 1.25, '#d93a3a');
+    v.box(-0.3, 2.41, 0, 1.15, 0.5, 0.9, '#d93a3a');
+    v.box(-0.05, 2.91, 0, 0.75, 0.4, 0.6, '#c53030');
+    v.box(0.4, 3.12, 0, 0.6, 0.3, 0.45, '#c53030');
+    v.box(0.85, 2.98, 0, 0.5, 0.5, 0.5, '#ffffff');
+  }
   const m = v.mesh();
   const g = new THREE.Group();
   g.add(m);
