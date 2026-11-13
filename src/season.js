@@ -5,7 +5,7 @@
 const KST_OFFSET = 9 * 60 * 60 * 1000;
 
 /** Themes in effect. initSeason() fills this in before the town is built. */
-export const SEASON = { snow: false, christmas: false };
+export const SEASON = { autumn: false, snow: false, christmas: false };
 
 function monthDay(text) {
   const [m, d] = text.split('-').map(Number);
@@ -20,25 +20,28 @@ export function inRange(range, today) {
   return from <= to ? today >= from && today <= to : today >= from || today <= to;
 }
 
-/** Which themes are on at `now`, judged by the date in Korea. */
+/** Which themes are on at `now`, judged by the date in Korea. Snow wins over autumn if the dates overlap. */
 export function seasonAt(seasons, now = Date.now()) {
   const kst = new Date(now + KST_OFFSET);
   const today = (kst.getUTCMonth() + 1) * 100 + kst.getUTCDate();
+  const snow = inRange(seasons?.snow, today);
   return {
-    snow: inRange(seasons?.snow, today),
+    autumn: !snow && inRange(seasons?.autumn, today),
+    snow,
     christmas: inRange(seasons?.christmas, today),
   };
 }
 
 const PREVIEW = {
-  christmas: { snow: true, christmas: true },
-  snow: { snow: true, christmas: false },
-  off: { snow: false, christmas: false },
+  autumn: { autumn: true, snow: false, christmas: false },
+  christmas: { autumn: false, snow: true, christmas: true },
+  snow: { autumn: false, snow: true, christmas: false },
+  off: { autumn: false, snow: false, christmas: false },
 };
 
 export function initSeason(seasons) {
   let s = seasonAt(seasons);
-  // Dev server only: ?season=christmas|snow|off previews a theme on any date.
+  // Dev server only: ?season=autumn|christmas|snow|off previews a theme on any date.
   // Production builds drop this, so nobody sees a theme before its dates.
   if (import.meta.env.DEV) {
     const preview = PREVIEW[new URLSearchParams(location.search).get('season')];

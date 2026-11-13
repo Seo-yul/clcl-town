@@ -6,6 +6,8 @@ import { SEASON } from './season.js';
 
 // Light bounced off snow is brighter and cooler than off grass.
 const SNOW_BOUNCE = new THREE.Color('#dfe7ef');
+// In autumn, light bounced off golden grass and leaves is warmer.
+const AUTUMN_BOUNCE = new THREE.Color('#c9a55a');
 
 export const TIMES = {
   morning: {
@@ -86,6 +88,7 @@ export class Sky {
     this.hemi.color.set(p.hemiSky);
     this.hemi.groundColor.set(p.hemiGround);
     if (SEASON.snow) this.hemi.groundColor.lerp(SNOW_BOUNCE, key === 'night' ? 0.3 : 0.6);
+    else if (SEASON.autumn) this.hemi.groundColor.lerp(AUTUMN_BOUNCE, key === 'night' ? 0.15 : 0.45);
     this.hemi.intensity = p.hemiI;
     this.sun.color.set(p.sun);
     this.sun.intensity = p.sunI;

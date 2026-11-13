@@ -6,7 +6,7 @@ import { Player } from './player.js';
 import { Sky, TIMES, TIME_ORDER, timeForHour } from './sky.js';
 import { Overlay, Minimap, Dialog, Prompt, toast, areaBanner, setupTouch } from './ui.js';
 import { initSeason } from './season.js';
-import { Snowfall } from './snowfall.js';
+import { Falling, SNOWFALL, LEAFFALL } from './falling.js';
 
 const $ = (sel) => document.querySelector(sel);
 
@@ -47,7 +47,7 @@ liteBox.checked = lite;
 
 function applyQuality() {
   renderer.shadowMap.enabled = !lite;
-  snowfall?.setCount(lite ? 1600 : 4000);
+  falling?.setLite(lite);
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, lite ? 1 : 2));
   scene.traverse((o) => {
     if (o.material) o.material.needsUpdate = true;
@@ -86,13 +86,16 @@ const world = buildWorld(scene, owners, {
   animalsPerFarm: CONFIG.animalsPerFarm,
   plays: CONFIG.plays,
   roaming: CONFIG.roaming,
+  contribute: CONFIG.contributeUrl,
 });
 const player = new Player();
 scene.add(player.object);
 player.teleport(world.spawn.x, world.spawn.z, Math.PI);
 
 const sky = new Sky(scene, world);
-const snowfall = season.snow ? new Snowfall(scene, 4000) : null;
+// Snow in the snow season, leaves in autumn.
+const fallKind = season.snow ? SNOWFALL : season.autumn ? LEAFFALL : null;
+const falling = fallKind ? new Falling(scene, fallKind) : null;
 let timeKey = timeForHour(new Date().getHours());
 sky.apply(timeKey);
 
@@ -200,6 +203,7 @@ function promptText(f) {
   if (!f) return '';
   if (f.kind === 'farm') return `${f.farm.owner}의 농장 정보 보기`;
   if (f.kind === 'board') return '마을 안내판 보기';
+  if (f.kind === 'github') return '기여하기';
   if (f.kind === 'animal') return f.animal.actionLabel;
   return '';
 }
@@ -208,6 +212,7 @@ function interact() {
   if (state !== 'play' || !focus) return;
   if (focus.kind === 'farm') openFarm(focus.farm);
   else if (focus.kind === 'board') dialog.board(world.farms, travelTo);
+  else if (focus.kind === 'github') window.open(focus.url, '_blank', 'noopener');
   else if (focus.kind === 'animal') {
     const a = focus.animal;
     a.pet(player.pos.x, player.pos.z);
@@ -353,7 +358,8 @@ function updateCamera(dt, t) {
 const intro = $('#intro');
 const startBtn = $('#startBtn');
 startBtn.disabled = false;
-$('#loadState').textContent = `농장 ${world.farms.length}곳이 준비됐어요`;
+// Loading is done; the start button says the rest.
+$('#loadState').hidden = true;
 startBtn.addEventListener('click', enterTown);
 sky.setShadowSpan(Math.max(world.W, world.D) * 0.7);
 scene.fog.near = 160;
@@ -422,7 +428,7 @@ renderer.setAnimationLoop(() => {
   sky.update(dt);
   updateCamera(dt, elapsed);
   sky.follow(state === 'intro' ? ORIGIN : camTarget);
-  snowfall?.update(dt, elapsed, state === 'intro' ? ORIGIN : camTarget);
+  falling?.update(dt, elapsed, state === 'intro' ? ORIGIN : camTarget);
 
   renderer.render(scene, camera);
   overlay.update(camera, window.innerWidth, window.innerHeight, elapsed);

@@ -35,12 +35,19 @@ export const CONFIG = {
   // 지금은 머더 미스터리 시리즈 7개다. 누군가와 함께하면 plays 에 기록하고, 원하면 여기서 뺀다.
   roaming: ['wendy', 'bluemoon', 'werewolf', 'eida', 'giantbird', 'hero', 'suspect'],
 
+  // 광장의 GitHub 표지판 앞에서 E 를 누르면 새 탭으로 여는 주소다. 비워 두면 표지판을 세우지 않는다.
+  contributeUrl: 'https://github.com/Seo-yul/clcl-town',
+
   // 계절 테마가 나타나는 기간이다. 한국 시간 기준 'MM-DD' 이고 시작일과 끝일을 모두 포함하며 해마다 되풀이한다.
   // 날짜는 페이지를 열 때 한 번 확인한다. 기간에 들어선 뒤 새로 고침하면 테마가 보인다.
+  // autumn 은 단풍 든 나무와 떨어지는 낙엽, 코스모스와 국화, 감나무, 광장의 호박 더미, 구름의 단풍잎 장식이다.
   // snow 는 눈 덮인 마을, 내리는 눈, 눈사람, 얼어붙은 연못이다. 02-29 는 2월 마지막 날까지라는 뜻이다.
   // christmas 는 광장의 크리스마스 트리, 집의 꼬마전구와 문 장식, 구름의 산타 모자다.
-  // 로컬 개발 화면(npm run dev)에서는 주소 뒤에 ?season=christmas, ?season=snow, ?season=off 를 붙여 날짜와 관계없이 미리 본다.
+  // autumn 과 snow 의 기간이 겹치면 snow 를 보여 준다.
+  // 로컬 개발 화면(npm run dev)에서는 주소 뒤에 ?season=autumn, ?season=christmas, ?season=snow, ?season=off 를 붙여
+  // 날짜와 관계없이 미리 본다.
   seasons: {
+    autumn: { from: '09-01', to: '12-03' },
     snow: { from: '12-04', to: '02-29' },
     christmas: { from: '12-04', to: '12-25' },
   },

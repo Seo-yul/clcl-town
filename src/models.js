@@ -1,9 +1,24 @@
 import * as THREE from 'three';
 import { Voxels, voxelMaterial } from './voxel.js';
+import { makeRng } from './rng.js';
 import { SEASON } from './season.js';
 
 /** Color of snow lying on things. */
 export const SNOW = '#f7fafc';
+
+/** Autumn foliage: maple red, orange, ginkgo yellow and crimson. */
+export const AUTUMN_LEAVES = ['#d94a2b', '#ea7d2c', '#f1bd2e', '#c23b32'];
+
+// A maple leaf, drawn with pixels(). Clouds wear one in autumn.
+const MAPLE = [
+  '...#...',
+  '#..#..#',
+  '##.#.##',
+  '.#####.',
+  '#######',
+  '..###..',
+  '...#...',
+];
 
 // ---------------------------------------------------------------------------
 // Rig helpers. Every animated model is a root group with a body, a head pivot
@@ -631,6 +646,12 @@ function cloudRig() {
       v.box(0.18, 1.2, 0, 0.16, 0.1, 0.15, '#c53030');
       v.box(0.32, 1.13, 0, 0.15, 0.15, 0.15, '#ffffff');
     })));
+  } else if (SEASON.autumn) {
+    // A maple leaf pinned above the left eye like a hairpin.
+    body.add(mesh(geo('club:cloud:maple', (v) => {
+      pixels(v, MAPLE, -0.62, 0.6, 0.32, 0.04, '#e0442b', 0.03);
+      v.box(-0.48, 0.28, 0.32, 0.03, 0.04, 0.03, '#9a3a22');
+    })));
   }
   const head = new THREE.Group();
   body.add(head);
@@ -1025,7 +1046,11 @@ export function addTree(v, x, z, rng, kind = 'round', scale = 1) {
     });
     return;
   }
-  const leaf = rng.pick(LEAVES);
+  const autumn = SEASON.autumn;
+  // In autumn the apple tree is a persimmon tree: pale leaves and lots of orange fruit.
+  const persimmon = autumn && kind === 'apple';
+  let leaf = rng.pick(autumn ? AUTUMN_LEAVES : LEAVES);
+  if (persimmon) leaf = '#c39a3a';
   v.box(x, 0, z, 0.6 * s, 1.6 * s, 0.6 * s, trunk);
   v.box(x, 1.4 * s, z, 2.4 * s, 1.4 * s, 2.4 * s, leaf, { jitter: 0.05 });
   v.box(x, 1.7 * s, z, 2.8 * s, 0.8 * s, 1.8 * s, leaf, { jitter: 0.05 });
@@ -1037,10 +1062,40 @@ export function addTree(v, x, z, rng, kind = 'round', scale = 1) {
     v.box(x, 2.5 * s, z, 2.8 * s + 0.04, 0.1, 1.8 * s + 0.04, SNOW);
     v.box(x, 2.5 * s, z, 1.8 * s + 0.04, 0.1, 2.8 * s + 0.04, SNOW);
   }
+  const fruit = persimmon ? '#f5600c' : '#e8433a';
   if (kind === 'apple') {
     for (let i = 0; i < 5; i++) {
       const a = rng.range(0, Math.PI * 2);
-      v.box(x + Math.cos(a) * 1.22 * s, rng.range(1.6, 2.5) * s, z + Math.sin(a) * 1.22 * s, 0.22, 0.22, 0.22, '#e8433a');
+      v.box(x + Math.cos(a) * 1.22 * s, rng.range(1.6, 2.5) * s, z + Math.sin(a) * 1.22 * s, 0.22, 0.22, 0.22, fruit);
+    }
+  }
+  if (autumn) {
+    // Extra persimmons and fallen leaves take their randomness from the tree's position,
+    // so the town's seeded sequence (and every farm's look) stays the same.
+    const local = makeRng(`autumn|${x.toFixed(2)}|${z.toFixed(2)}`);
+    if (persimmon) {
+      // Persimmons on the outside of the canopy: five on its shoulders, the rest on its sides.
+      for (let i = 0; i < 12; i++) {
+        const side = local.int(0, 3);
+        const along = local.range(-1.0, 1.0);
+        let y;
+        let out;
+        if (i < 5) {
+          y = 2.8;
+          out = local.range(0.85, 1.1);
+        } else {
+          y = local.range(1.45, 2.55);
+          out = y > 1.7 && y < 2.5 && Math.abs(along) < 0.9 ? 1.45 : 1.25;
+        }
+        const [dx, dz] = side === 0 ? [out, along] : side === 1 ? [-out, along] : side === 2 ? [along, out] : [along, -out];
+        v.box(x + dx * s, y * s, z + dz * s, 0.3, 0.27, 0.3, fruit);
+      }
+    }
+    for (let i = 0; i < 6; i++) {
+      const a = local.range(0, Math.PI * 2);
+      const r = local.range(0.55, 1.7) * s;
+      const c = local.chance(0.6) ? leaf : local.pick(AUTUMN_LEAVES);
+      v.box(x + Math.cos(a) * r, 0.07, z + Math.sin(a) * r, 0.3, 0.03, 0.26, c);
     }
   }
 }
@@ -1051,12 +1106,27 @@ export function addFlower(v, x, z, color) {
     v.box(x, 0, z, 0.34, 0.1, 0.28, SNOW);
     return;
   }
+  if (SEASON.autumn) {
+    // Cosmos: a tall thin stem and a flat flower head.
+    v.box(x, 0, z, 0.05, 0.46, 0.05, '#5d9a3e');
+    v.box(x, 0.46, z, 0.26, 0.07, 0.26, COSMOS[FLOWER_COLORS.indexOf(color)] || color);
+    v.box(x, 0.48, z, 0.08, 0.08, 0.08, '#f2c12e');
+    return;
+  }
   v.box(x, 0, z, 0.06, 0.28, 0.06, '#4f9a3c');
   v.box(x, 0.28, z, 0.2, 0.14, 0.2, color);
   v.box(x, 0.3, z, 0.08, 0.15, 0.08, '#ffe066');
 }
 
 export const FLOWER_COLORS = ['#ff8fab', '#ffd166', '#ffffff', '#c39bff', '#ff6b6b', '#8ecae6'];
+// Autumn flowers, one for each FLOWER_COLORS entry, so a seeded pick maps to the same slot.
+const COSMOS = ['#f49ac1', '#f39a2b', '#ffffff', '#e0559a', '#c2408a', '#f7c6dc'];
+const MUMS = ['#f2c12e', '#f39a2b', '#ffffff', '#b5489a', '#e0559a', '#f2c12e'];
+
+/** The color a bed or window-box flower has this season (chrysanthemums in autumn). */
+export function bloom(color) {
+  return SEASON.autumn ? MUMS[FLOWER_COLORS.indexOf(color)] || color : color;
+}
 
 /** Puffy sky cloud made of a few boxes. */
 export function addCloud(v, rng, ox = 0, oy = 0, oz = 0, s = 1) {
@@ -1094,6 +1164,10 @@ export function createMascot() {
     v.box(-0.05, 2.91, 0, 0.75, 0.4, 0.6, '#c53030');
     v.box(0.4, 3.12, 0, 0.6, 0.3, 0.45, '#c53030');
     v.box(0.85, 2.98, 0, 0.5, 0.5, 0.5, '#ffffff');
+  } else if (SEASON.autumn) {
+    // A maple leaf pinned above the left eye like a hairpin, as on the club clouds.
+    pixels(v, MAPLE, -1.62, 0.92, 0.93, 0.12, '#e0442b', 0.06);
+    v.box(-1.2, 0.0, 0.93, 0.08, 0.1, 0.06, '#9a3a22');
   }
   const m = v.mesh();
   const g = new THREE.Group();

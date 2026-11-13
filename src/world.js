@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { Voxels, textTexture, voxelMaterial } from './voxel.js';
 import { makeRng } from './rng.js';
-import { ANIMALS, GAMES, addTree, addFlower, FLOWER_COLORS, createMascot, SNOW } from './models.js';
+import { ANIMALS, GAMES, addTree, addFlower, FLOWER_COLORS, createMascot, SNOW, AUTUMN_LEAVES, bloom } from './models.js';
 import { Animal, separate } from './animals.js';
 import { SEASON } from './season.js';
 
@@ -40,6 +40,31 @@ const WINTER = {
   waterDeep: '#bcdcea',
   sand: '#e8edf1',
 };
+
+// Autumn: the grass turns golden. Only colors change, so the layout stays the same.
+const AUTUMN = {
+  grass: '#a9b95c',
+  plotGrass: '#b7c46a',
+};
+const DRY_GRASS = '#c4a64e';
+
+// The GitHub mark (Primer Octicons mark-github-16), drawn on the plaza's contribute sign.
+const GITHUB_MARK = 'M6.766 11.328c-2.063-.25-3.516-1.734-3.516-3.656 0-.781.281-1.625.75-2.188-.203-.515-.172-1.609.063-2.062.625-.078 1.468.25 1.968.703.594-.187 1.219-.281 1.985-.281.765 0 1.39.094 1.953.265.484-.437 1.344-.765 1.969-.687.218.422.25 1.515.046 2.047.5.593.766 1.39.766 2.203 0 1.922-1.453 3.375-3.547 3.64.531.344.89 1.094.89 1.954v1.625c0 .468.391.734.86.547C13.781 14.359 16 11.53 16 8.03 16 3.61 12.406 0 7.984 0 3.563 0 0 3.61 0 8.031a7.88 7.88 0 0 0 5.172 7.422c.422.156.828-.125.828-.547v-1.25c-.219.094-.5.156-.75.156-1.031 0-1.64-.562-2.078-1.609-.172-.422-.36-.672-.719-.719-.187-.015-.25-.093-.25-.187 0-.188.313-.328.625-.328.453 0 .844.281 1.25.86.313.452.64.655 1.031.655s.641-.14 1-.5c.266-.265.47-.5.657-.656';
+
+/** A texture with an SVG path (16 by 16 units) filled in one color on a clear background. */
+function pathTexture(path, color, size = 256) {
+  const canvas = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  ctx.scale(size / 16, size / 16);
+  ctx.fillStyle = color;
+  ctx.fill(new Path2D(path));
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.anisotropy = 4;
+  return tex;
+}
 
 // Christmas lights. Bulbs go into two meshes that twinkle in turn.
 const BULB_COLORS = ['#ff5252', '#ffd54a', '#4fc3ff', '#7ee86a', '#ff8ad8'];
@@ -129,8 +154,9 @@ function gamesByOwner(plays, owners) {
   return result;
 }
 
-export function buildWorld(scene, owners, { seed, shuffle, animalsPerFarm = 1, plays = [], roaming = [] }) {
+export function buildWorld(scene, owners, { seed, shuffle, animalsPerFarm = 1, plays = [], roaming = [], contribute = '' }) {
   if (SEASON.snow) Object.assign(COLOR, WINTER);
+  else if (SEASON.autumn) Object.assign(COLOR, AUTUMN);
   const L = layout(owners.length);
   const ownerGames = gamesByOwner(plays, owners);
   const W = L.cols * CELL;
@@ -238,7 +264,7 @@ export function buildWorld(scene, owners, { seed, shuffle, animalsPerFarm = 1, p
   });
 
   // --- plaza ---
-  const plaza = buildPlaza(scene, statics, L.plaza, worldRng, addCollider, updaters, decor);
+  const plaza = buildPlaza(scene, statics, L.plaza, worldRng, addCollider, updaters, decor, contribute);
   // A few animals wander the open plaza tiles east and west of the fountain.
   const P = L.plaza;
   const plazaHerds = [
@@ -254,6 +280,7 @@ export function buildWorld(scene, owners, { seed, shuffle, animalsPerFarm = 1, p
     herds.push(herd);
   });
   interactables.push({ kind: 'board', x: plaza.board.x, z: plaza.board.z + 0.8, r: 2.6 });
+  if (plaza.github) interactables.push({ kind: 'github', x: plaza.github.x, z: plaza.github.z + 0.9, r: 2.4, url: contribute });
   areas.push({ kind: 'plaza', minX: L.plaza.x - 12.5, maxX: L.plaza.x + 12.5, minZ: L.plaza.z - 12.5, maxZ: L.plaza.z + 12.5 });
 
   // --- characters strolling the roads between farms (not on anyone's farm yet) ---
@@ -485,7 +512,7 @@ function buildFarm(scene, cell, owner, index, rng, addCollider, animalCount, gam
     else {
       const h = rng.range(0.2, 0.35);
       if (SEASON.snow) v.box(x, 0, z, 0.3, 0.1, 0.24, SNOW);
-      else v.box(x, 0, z, 0.12, h, 0.12, '#6fae4c');
+      else v.box(x, 0, z, 0.12, h, 0.12, SEASON.autumn ? DRY_GRASS : '#6fae4c');
     }
   }
 
@@ -622,7 +649,7 @@ function buildHouse(v, bx, bz, st, rng, decor) {
       v.box(wx, 1.28, front + 0.08, 0.08, 0.9, 0.02, st.trim);
       v.box(wx, 1.69, front + 0.08, 0.95, 0.08, 0.02, st.trim);
       v.box(wx, 0.95, front + 0.2, 1.3, 0.25, 0.32, COLOR.woodDark);
-      for (let k = -2; k <= 2; k++) v.box(wx + k * 0.24, 1.2, front + 0.2, 0.16, 0.16, 0.16, rng.pick(FLOWER_COLORS));
+      for (let k = -2; k <= 2; k++) v.box(wx + k * 0.24, 1.2, front + 0.2, 0.16, 0.16, 0.16, bloom(rng.pick(FLOWER_COLORS)));
     }
     v.box(bx + 1.8, 4.2, bz - 1.2, 0.8, 2.4, 0.8, '#b0645a');
     v.box(bx + 1.8, 6.6, bz - 1.2, 0.95, 0.2, 0.95, '#8f4f47');
@@ -670,6 +697,25 @@ function buildHayBale(v, x, z) {
   v.box(x - 0.25, 0, z, 0.08, 0.82, 0.87, '#c9a23f');
   v.box(x + 0.25, 0, z, 0.08, 0.82, 0.87, '#c9a23f');
   if (SEASON.snow) v.box(x, 0.82, z, 1.07, 0.1, 0.89, SNOW);
+  if (SEASON.autumn) addPumpkin(v, x + 0.1, 0.82, z, 0.8);
+}
+
+/** A pumpkin sitting at height y. `s` scales it. */
+function addPumpkin(v, x, y, z, s = 1) {
+  v.box(x, y, z, 0.62 * s, 0.42 * s, 0.54 * s, '#f0891d');
+  v.box(x, y, z, 0.42 * s, 0.44 * s, 0.58 * s, '#e07a14');
+  v.box(x, y + 0.42 * s, z, 0.07 * s, 0.13 * s, 0.07 * s, '#5a7d2a');
+}
+
+/** A heap of fallen leaves. */
+function buildLeafPile(v, x, z) {
+  const local = makeRng(`leaf-pile|${x.toFixed(2)}|${z.toFixed(2)}`);
+  [[1.9, 0.22, 1.6], [1.4, 0.2, 1.2], [0.8, 0.16, 0.7]].forEach(([w, h, d], i) => {
+    for (let k = 0; k < 5; k++) {
+      const c = local.pick(AUTUMN_LEAVES);
+      v.box(x + local.range(-0.25, 0.25) * w, i * 0.2, z + local.range(-0.25, 0.25) * d, w * 0.6, h, d * 0.6, c, { jitter: 0.05 });
+    }
+  });
 }
 
 function buildHayStack(v, x, z) {
@@ -729,9 +775,12 @@ function buildCrops(field, fx, fz, kind, rng) {
           v.box(px - 0.2, y + 0.02, pz + 0.12, 0.12, 0.12, 0.1, '#e5303e');
           break;
         case 'corn': {
-          v.box(px, y, pz, 0.12, 1.5, 0.12, '#6ea33e');
-          v.box(px, y + 0.7, pz, 0.7, 0.05, 0.12, '#7fb84a', { ry: rng.range(0, Math.PI) });
-          v.box(px, y + 1.1, pz, 0.6, 0.05, 0.12, '#7fb84a', { ry: rng.range(0, Math.PI) });
+          // Ready for harvest in autumn: the stalks have dried.
+          const stalk = SEASON.autumn ? '#bca55a' : '#6ea33e';
+          const blade = SEASON.autumn ? '#cdb46a' : '#7fb84a';
+          v.box(px, y, pz, 0.12, 1.5, 0.12, stalk);
+          v.box(px, y + 0.7, pz, 0.7, 0.05, 0.12, blade, { ry: rng.range(0, Math.PI) });
+          v.box(px, y + 1.1, pz, 0.6, 0.05, 0.12, blade, { ry: rng.range(0, Math.PI) });
           v.box(px + 0.11, y + 0.75, pz, 0.12, 0.3, 0.12, '#f2cf4a');
           v.box(px, y + 1.5, pz, 0.06, 0.22, 0.06, '#d9c06a');
           break;
@@ -831,7 +880,7 @@ function buildChristmasTree(v, bulbs, x, z) {
 // Plaza: fountain with the cloud mascot, windmill, notice board, welcome arch.
 // ---------------------------------------------------------------------------
 
-function buildPlaza(scene, v, cell, rng, addCollider, updaters, decor) {
+function buildPlaza(scene, v, cell, rng, addCollider, updaters, decor, contribute) {
   const snow = SEASON.snow;
   const cx = cell.x;
   const cz = cell.z;
@@ -979,7 +1028,7 @@ function buildPlaza(scene, v, cell, rng, addCollider, updaters, decor) {
     v.box(x, 0, z, 3.0, 0.35, 1.8, '#b9a98c');
     v.box(x, 0, z, 2.7, snow ? 0.46 : 0.4, 1.5, COLOR.soil);
     for (let k = 0; k < 9; k++) {
-      const color = rng.pick(FLOWER_COLORS);
+      const color = bloom(rng.pick(FLOWER_COLORS));
       if (!snow) v.box(x - 1.0 + (k % 3) * 1.0, 0.4, z - 0.45 + Math.floor(k / 3) * 0.45, 0.28, 0.24, 0.28, color);
     }
     addCollider(x, z, 3.0, 1.8, 0.4);
@@ -1008,7 +1057,37 @@ function buildPlaza(scene, v, cell, rng, addCollider, updaters, decor) {
     }
   }
 
-  return { cx, cz, board, tree, labelAnchor: new THREE.Vector3(cx, 7.8, fz) };
+  // GitHub sign by the south entrance. E opens the town's repository.
+  let github = null;
+  if (contribute) {
+    github = { x: cx - 7.0, z: cz + 8.8 };
+    const { x: gx, z: gz } = github;
+    for (const s of [-1, 1]) v.box(gx + s * 1.05, 0, gz, 0.22, 2.3, 0.22, COLOR.woodDark);
+    v.box(gx, 0.75, gz, 2.5, 1.75, 0.16, COLOR.woodDark);
+    v.box(gx, 0.82, gz + 0.02, 2.3, 1.6, 0.16, '#24292f');
+    if (snow) v.box(gx, 2.5, gz, 2.54, 0.1, 0.24, SNOW);
+    addCollider(gx, gz, 2.5, 0.4, 2.6);
+    const mark = new THREE.Mesh(
+      new THREE.PlaneGeometry(1.3, 1.3),
+      new THREE.MeshLambertMaterial({ map: pathTexture(GITHUB_MARK, '#ffffff'), transparent: true }),
+    );
+    mark.position.set(gx, 1.62, gz + 0.11);
+    scene.add(mark);
+  }
+
+  // Autumn harvest on the same open corners: a hay bale with pumpkins and a heap of leaves.
+  if (SEASON.autumn) {
+    const [hx, hz] = [cx + 7.6, cz + 8.2];
+    buildHayBale(v, hx, hz);
+    addPumpkin(v, hx - 0.95, 0, hz + 0.3, 1.1);
+    addPumpkin(v, hx + 0.9, 0, hz + 0.45, 0.9);
+    addPumpkin(v, hx + 0.2, 0, hz + 0.85, 0.7);
+    addCollider(hx, hz + 0.3, 2.6, 1.6, 0.9);
+    buildLeafPile(v, cx - 9.6, cz + 5.6);
+    addCollider(cx - 9.6, cz + 5.6, 1.6, 1.4, 0.6);
+  }
+
+  return { cx, cz, board, tree, github, labelAnchor: new THREE.Vector3(cx, 7.8, fz) };
 }
 
 // ---------------------------------------------------------------------------
@@ -1031,7 +1110,7 @@ function buildMeadow(v, cell, rng, addCollider) {
   }
   for (let k = 0; k < 10; k++) {
     const a = rng.range(0, Math.PI * 2);
-    v.box(cx + Math.cos(a) * 6.3, 0, cz + Math.sin(a) * 4.2, 0.1, rng.range(0.6, 1.1), 0.1, snow ? '#b5a273' : '#6c9e3c');
+    v.box(cx + Math.cos(a) * 6.3, 0, cz + Math.sin(a) * 4.2, 0.1, rng.range(0.6, 1.1), 0.1, snow || SEASON.autumn ? '#b5a273' : '#6c9e3c');
   }
   addCollider(cx, cz, 12.0, 6.0, 0.5);
   addCollider(cx, cz, 10.0, 8.0, 0.5);
