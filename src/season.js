@@ -5,7 +5,10 @@
 const KST_OFFSET = 9 * 60 * 60 * 1000;
 
 /** Themes in effect. initSeason() fills this in before the town is built. */
-export const SEASON = { autumn: false, snow: false, christmas: false };
+export const SEASON = { spring: false, summer: false, autumn: false, snow: false, christmas: false, newyear: false };
+
+// The four base seasons show one at a time. If their dates overlap, the first in this list wins.
+const BASE = ['snow', 'autumn', 'summer', 'spring'];
 
 function monthDay(text) {
   const [m, d] = text.split('-').map(Number);
@@ -20,28 +23,31 @@ export function inRange(range, today) {
   return from <= to ? today >= from && today <= to : today >= from || today <= to;
 }
 
-/** Which themes are on at `now`, judged by the date in Korea. Snow wins over autumn if the dates overlap. */
+/** Which themes are on at `now`, judged by the date in Korea. */
 export function seasonAt(seasons, now = Date.now()) {
   const kst = new Date(now + KST_OFFSET);
   const today = (kst.getUTCMonth() + 1) * 100 + kst.getUTCDate();
-  const snow = inRange(seasons?.snow, today);
-  return {
-    autumn: !snow && inRange(seasons?.autumn, today),
-    snow,
-    christmas: inRange(seasons?.christmas, today),
-  };
+  const base = BASE.find((k) => inRange(seasons?.[k], today));
+  const s = Object.fromEntries(BASE.map((k) => [k, k === base]));
+  s.christmas = inRange(seasons?.christmas, today);
+  s.newyear = inRange(seasons?.newyear, today);
+  return s;
 }
 
+const OFF = { spring: false, summer: false, autumn: false, snow: false, christmas: false, newyear: false };
 const PREVIEW = {
-  autumn: { autumn: true, snow: false, christmas: false },
-  christmas: { autumn: false, snow: true, christmas: true },
-  snow: { autumn: false, snow: true, christmas: false },
-  off: { autumn: false, snow: false, christmas: false },
+  spring: { ...OFF, spring: true },
+  summer: { ...OFF, summer: true },
+  autumn: { ...OFF, autumn: true },
+  snow: { ...OFF, snow: true },
+  christmas: { ...OFF, snow: true, christmas: true },
+  newyear: { ...OFF, snow: true, newyear: true },
+  off: OFF,
 };
 
 export function initSeason(seasons) {
   let s = seasonAt(seasons);
-  // Dev server only: ?season=autumn|christmas|snow|off previews a theme on any date.
+  // Dev server only: ?season=spring|summer|autumn|snow|christmas|newyear|off previews a theme on any date.
   // Production builds drop this, so nobody sees a theme before its dates.
   if (import.meta.env.DEV) {
     const preview = PREVIEW[new URLSearchParams(location.search).get('season')];

@@ -123,6 +123,12 @@ window.addEventListener('keydown', (e) => {
     if (e.code === 'Enter') enterTown();
     return;
   }
+  // Typing in a text box (the farm search) is not a game control. On a Korean keyboard ㄷ is
+  // the E key and ㅇ is D, so the keys must reach the box. Escape still closes the window.
+  if (e.target instanceof HTMLInputElement && e.target.type !== 'checkbox') {
+    if (e.code === 'Escape' && dialog.open) dialog.close();
+    return;
+  }
   if (MOVE_KEYS.includes(e.code)) e.preventDefault();
   if (dialog.open) {
     if (e.code === 'Escape' || e.code === 'KeyE') {

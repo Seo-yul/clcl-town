@@ -5,6 +5,48 @@ import { SEASON } from './season.js';
 const $ = (sel) => document.querySelector(sel);
 const v3 = new THREE.Vector3();
 
+// Korean name search. A query matches plain text, initial consonants (ㅇㅅㅇ finds 윤서율), and
+// the syllable still being typed: before 율 is finished the box reads 윤성, which still finds 윤서율.
+const CHO = 'ㄱㄲㄴㄷㄸㄹㅁㅂㅃㅅㅆㅇㅈㅉㅊㅋㅌㅍㅎ';
+// Final consonants that move to the next syllable while typing, as initial consonants.
+const JONG_CHO = { 1: 'ㄱ', 2: 'ㄲ', 4: 'ㄴ', 7: 'ㄷ', 8: 'ㄹ', 16: 'ㅁ', 17: 'ㅂ', 19: 'ㅅ', 20: 'ㅆ', 21: 'ㅇ', 22: 'ㅈ', 23: 'ㅊ', 24: 'ㅋ', 25: 'ㅌ', 26: 'ㅍ', 27: 'ㅎ' };
+
+function syllable(ch) {
+  const s = ch ? ch.charCodeAt(0) - 0xac00 : -1;
+  return s >= 0 && s < 11172 ? { cho: CHO[Math.floor(s / 588)], base: s - (s % 28), jong: s % 28 } : null;
+}
+
+/** How many name characters query character `q` covers at name[i]; 0 means no match. */
+function matchAt(q, name, i, last) {
+  const n = name[i];
+  if (n === undefined) return 0;
+  if (q === n) return 1;
+  const ns = syllable(n);
+  if (CHO.includes(q)) return ns && ns.cho === q ? 1 : 0;
+  const qs = syllable(q);
+  if (!last || !qs || !ns || ns.base !== qs.base) return 0;
+  if (qs.jong === 0) return 1; // 유 while typing 윤
+  if (ns.jong === 0 && syllable(name[i + 1])?.cho === JONG_CHO[qs.jong]) return 2; // 성 while typing 서율
+  return 0;
+}
+
+export function nameMatches(name, query) {
+  const q = [...query.replace(/\s+/g, '').toLowerCase()];
+  const n = [...name.replace(/\s+/g, '').toLowerCase()];
+  if (!q.length) return true;
+  for (let start = 0; start < n.length; start++) {
+    let i = start;
+    let k = 0;
+    for (; k < q.length; k++) {
+      const used = matchAt(q[k], n, i, k === q.length - 1);
+      if (!used) break;
+      i += used;
+    }
+    if (k === q.length) return true;
+  }
+  return false;
+}
+
 function escapeHtml(s) {
   return String(s).replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
 }
@@ -327,12 +369,45 @@ export class Dialog {
       `<p class="kicker">마을 안내판</p>
        <h2>클클 타운 농장 목록</h2>
        <p class="owner">가고 싶은 농장을 고르면 그 농장 입구로 바로 이동해요.</p>
-       <ul class="farm-list">${items}</ul>`,
+       <form class="farm-search" role="search">
+         <input type="search" placeholder="이름으로 찾기" aria-label="농장 주인 이름으로 찾기"
+           autocomplete="off" spellcheck="false" enterkeyhint="go" />
+       </form>
+       <div class="farm-results">
+         <ul class="farm-list">${items}</ul>
+         <p class="farm-empty" hidden>찾는 농장이 없어요</p>
+       </div>`,
       '#6fbdf2',
     );
     this.body.querySelectorAll('[data-farm]').forEach((btn) => {
       btn.addEventListener('click', () => onPick(farms[Number(btn.dataset.farm)]));
     });
+
+    // Narrow the list as the visitor types. Enter goes to the farm when only one is left.
+    const form = this.body.querySelector('.farm-search');
+    const search = form.querySelector('input');
+    const rows = [...this.body.querySelectorAll('.farm-list li')];
+    const empty = this.body.querySelector('.farm-empty');
+    const visible = () => rows.filter((li) => !li.hidden);
+    // Keep the full list's height so the window and the box do not jump while typing.
+    const results = this.body.querySelector('.farm-results');
+    requestAnimationFrame(() => {
+      results.style.minHeight = `${results.offsetHeight}px`;
+    });
+    search.addEventListener('input', () => {
+      rows.forEach((li, i) => {
+        li.hidden = !nameMatches(farms[i].owner, search.value);
+      });
+      empty.hidden = visible().length > 0;
+    });
+    // A form submits on Enter only after the Korean input method has finished the syllable.
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const left = visible();
+      if (this.open && left.length === 1) left[0].querySelector('button').click();
+    });
+    // Focus the box for keyboard users; on touch screens it would pop up the keyboard at once.
+    if (window.matchMedia('(pointer: fine)').matches) search.focus({ preventScroll: true });
   }
 }
 

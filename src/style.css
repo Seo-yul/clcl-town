@@ -748,6 +748,33 @@ body.touch .chips .tc {
   font-size: 12px;
 }
 
+.farm-search {
+  margin: 14px 0 0;
+}
+
+.farm-search input {
+  width: 100%;
+  padding: 9px 14px 10px;
+  border: 1.5px solid #e2dccb;
+  border-radius: 10px;
+  background: #fff;
+  font: inherit;
+  font-size: 14px;
+  color: var(--ink);
+}
+
+.farm-search input:focus {
+  border-color: var(--ink);
+  outline: none;
+}
+
+.farm-empty {
+  margin: 18px 0 4px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--ink-soft);
+}
+
 .farm-list {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
