@@ -367,7 +367,7 @@ function enterTown({ quiet = false } = {}) {
   }, 600);
   $('#hud').hidden = false;
   minimap.resize();
-  if (!quiet) setTimeout(() => toast('클클 타운에 온 걸 환영해요! 광장의 농장 안내판에서 농장 목록을 볼 수 있어요.', 5200), 1700);
+  if (!quiet) setTimeout(() => toast('클클 타운에 온 걸 환영해요! 광장의 마을 안내판에서 농장 목록을 볼 수 있어요.', 5200), 1700);
 }
 
 // Opened from a farm link (or back from the GitHub login): skip the intro and open that farm.
