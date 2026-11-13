@@ -85,11 +85,11 @@ function gamesByOwner(plays, owners) {
   const byOwner = new Map();
   for (const { game, players } of plays) {
     if (!GAMES[game]) {
-      console.warn(`[클클 마을] 모르는 게임: ${game}`);
+      console.warn(`[클클 타운] 모르는 게임: ${game}`);
       continue;
     }
     for (const name of players) {
-      if (!known.has(name)) console.warn(`[클클 마을] ${game} 기록의 '${name}' 은 농장 주인 명단에 없다.`);
+      if (!known.has(name)) console.warn(`[클클 타운] ${game} 기록의 '${name}' 은 농장 주인 명단에 없다.`);
       if (!byOwner.has(name)) byOwner.set(name, new Map());
       const counts = byOwner.get(name);
       counts.set(game, (counts.get(game) || 0) + 1);
@@ -252,7 +252,7 @@ export function buildWorld(scene, owners, { seed, shuffle, animalsPerFarm = 1, p
   const strollers = [];
   roaming.forEach((type, i) => {
     if (!GAMES[type]) {
-      console.warn(`[클클 마을] 모르는 캐릭터: ${type}`);
+      console.warn(`[클클 타운] 모르는 캐릭터: ${type}`);
       return;
     }
     const r = makeRng(`${seed}|roam|${type}`);
@@ -728,7 +728,7 @@ function buildPlaza(scene, v, cell, rng, addCollider, updaters) {
   v.box(cx, 5.2, az, 6.3, 0.12, 0.26, '#6fbdf2');
   const welcome = new THREE.Mesh(
     new THREE.PlaneGeometry(5.8, 1.25),
-    new THREE.MeshLambertMaterial({ map: textTexture('☁ 클클 마을 ☁', { width: 768, height: 160, font: 'bold 92px Galmuri11', color: '#2e4a7d' }), transparent: true }),
+    new THREE.MeshLambertMaterial({ map: textTexture('☁ 클클 타운 ☁', { width: 768, height: 160, font: 'bold 92px Galmuri11', color: '#2e4a7d' }), transparent: true }),
   );
   welcome.position.set(cx, 4.55, az + 0.105);
   scene.add(welcome);

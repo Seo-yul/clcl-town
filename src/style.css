@@ -524,6 +524,12 @@ body.touch .prompt {
 #intro .desc {
   margin: 16px 0 0;
   line-height: 1.75;
+  word-break: keep-all;
+}
+
+/* 문장이 좁은 화면에서 어색한 곳에서 끊기지 않도록 구절 단위로 줄을 바꾼다. */
+#intro .desc span {
+  display: inline-block;
 }
 
 .chips {
