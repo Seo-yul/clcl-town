@@ -194,7 +194,7 @@ function findFocus() {
 function promptText(f) {
   if (!f) return '';
   if (f.kind === 'farm') return `${f.farm.owner}의 농장 정보 보기`;
-  if (f.kind === 'board') return '농장 안내판 보기';
+  if (f.kind === 'board') return '마을 안내판 보기';
   if (f.kind === 'animal') return f.animal.actionLabel;
   return '';
 }

@@ -744,7 +744,7 @@ function buildPlaza(scene, v, cell, rng, addCollider, updaters) {
   addCollider(board.x, board.z, 3.0, 0.4, 3);
   const boardTitle = new THREE.Mesh(
     new THREE.PlaneGeometry(2.6, 0.42),
-    new THREE.MeshLambertMaterial({ map: textTexture('농장 안내판', { width: 512, height: 84, font: 'bold 56px Galmuri11', color: '#fffaf0', bg: '#7a4b2b' }) }),
+    new THREE.MeshLambertMaterial({ map: textTexture('마을 안내판', { width: 512, height: 84, font: 'bold 56px Galmuri11', color: '#fffaf0', bg: '#7a4b2b' }) }),
   );
   boardTitle.position.set(board.x, 2.12, board.z + 0.1);
   scene.add(boardTitle);

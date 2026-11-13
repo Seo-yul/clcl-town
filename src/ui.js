@@ -318,7 +318,7 @@ export class Dialog {
       )
       .join('');
     this.show(
-      `<p class="kicker">농장 안내판</p>
+      `<p class="kicker">마을 안내판</p>
        <h2>클클 타운 농장 목록</h2>
        <p class="owner">가고 싶은 농장을 고르면 그 농장 입구로 바로 이동해요.</p>
        <ul class="farm-list">${items}</ul>`,
