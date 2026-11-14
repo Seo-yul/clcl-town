@@ -331,10 +331,16 @@ renderTimeBtn();
 // Background music
 // ---------------------------------------------------------------------------
 
+// Touch screens have no volume slider (the phone's volume keys do that job), so they always
+// play at the default level; a level saved earlier could otherwise leave the music stuck quiet.
+const DEFAULT_VOLUME = 40;
 const storedVolume = Number(storageGet('clcl-music-vol'));
 const music = new Music(bgmUrl, {
   on: storageGet('clcl-music') !== '0',
-  volume: storageGet('clcl-music-vol') !== null && Number.isFinite(storedVolume) ? Math.min(100, Math.max(0, storedVolume)) : 40,
+  volume:
+    !isTouch && storageGet('clcl-music-vol') !== null && Number.isFinite(storedVolume)
+      ? Math.min(100, Math.max(0, storedVolume))
+      : DEFAULT_VOLUME,
 });
 const musicBtn = $('#musicBtn');
 const musicVol = $('#musicVol');
@@ -351,7 +357,7 @@ function toggleMusic() {
     music.setOn(false);
   } else {
     // Turning on at volume 0 would stay silent, so it comes back at the default level.
-    if (music.volume === 0) music.setVolume(40);
+    if (music.volume === 0) music.setVolume(DEFAULT_VOLUME);
     music.setOn(true);
   }
   storageSet('clcl-music', music.on ? '1' : '0');

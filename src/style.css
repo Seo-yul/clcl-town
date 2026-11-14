@@ -273,11 +273,14 @@ kbd {
   box-shadow: 0 1px 0 rgba(43, 42, 61, 0.25);
 }
 
+/* On desktop the volume slider stands upright under the button. Touch screens show only the
+   button, because the phone's own volume keys already set the loudness. */
 .music {
-  display: inline-flex;
+  display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 4px;
-  padding: 2px 12px 2px 4px;
+  gap: 2px;
+  padding: 2px 2px 10px;
   border: 2.5px solid var(--ink);
   border-radius: 999px;
   background: var(--paper);
@@ -300,16 +303,27 @@ kbd {
   transform: translateY(1px);
 }
 
-/* A chunky pixel slider: the filled part of the track is drawn from --fill. */
+.vol {
+  position: relative;
+  width: 20px;
+  height: 84px;
+}
+
+/* A chunky pixel slider turned upright: --fill colors the track from the bottom up.
+   Rotating keeps it working in browsers without vertical range inputs. */
 #musicVol {
   -webkit-appearance: none;
   appearance: none;
+  position: absolute;
+  top: 50%;
+  left: 50%;
   width: 84px;
   height: 8px;
   margin: 0;
   border: 1.5px solid var(--ink);
   border-radius: 4px;
   background: linear-gradient(to right, #6fbdf2 var(--fill, 40%), #fff var(--fill, 40%));
+  transform: translate(-50%, -50%) rotate(-90deg);
   cursor: pointer;
 }
 
@@ -336,13 +350,12 @@ kbd {
   outline-offset: 3px;
 }
 
-body.touch #musicVol {
-  width: 96px;
+body.touch .music {
+  padding: 2px;
 }
 
-body.touch #musicVol::-webkit-slider-thumb {
-  width: 20px;
-  height: 20px;
+body.touch .vol {
+  display: none;
 }
 
 .area-banner {
