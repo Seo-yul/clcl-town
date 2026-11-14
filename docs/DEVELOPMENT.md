@@ -163,6 +163,8 @@ M 을 누르거나 오른쪽 위 지도를 누르면 큰 지도가 열리고, �
 | `src/music.js` | 배경음악 재생, 켜고 끄기, 볼륨 |
 | `src/assets/bgm.m4a` | 배경음악 |
 | `public/favicon.svg` | 구름 파비콘 |
+| `public/apple-touch-icon.png` | iPhone 홈 화면 아이콘. 파비콘을 하늘색 바탕에 그린 180px 그림이다 |
+| `public/og.jpg` | 링크 미리보기 그림. `docs/screenshot.jpg` 를 복사했다 |
 | `public/giscus-theme.css` | 방명록 색과 글꼴 |
 | `public/fonts/` | 갈무리 글꼴. 사이트와 방명록이 함께 쓴다 |
 
