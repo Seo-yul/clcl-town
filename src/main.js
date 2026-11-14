@@ -7,6 +7,8 @@ import { Sky, TIMES, TIME_ORDER, timeForHour } from './sky.js';
 import { Overlay, Minimap, Dialog, Prompt, toast, areaBanner, setupTouch } from './ui.js';
 import { initSeason } from './season.js';
 import { Falling, Fireflies, SNOWFALL, LEAFFALL, PETALFALL } from './falling.js';
+import { Music } from './music.js';
+import bgmUrl from './assets/bgm.m4a';
 
 const $ = (sel) => document.querySelector(sel);
 
@@ -127,10 +129,12 @@ window.addEventListener('keydown', (e) => {
   }
   // Typing in a text box (the farm search) is not a game control. On a Korean keyboard ㄷ is
   // the E key and ㅇ is D, so the keys must reach the box. Escape still closes the window.
-  if (e.target instanceof HTMLInputElement && e.target.type !== 'checkbox') {
+  if (e.target instanceof HTMLInputElement && (e.target.type === 'search' || e.target.type === 'text')) {
     if (e.code === 'Escape' && dialog.open) dialog.close();
     return;
   }
+  // A focused volume slider (reached with Tab) takes the arrow keys.
+  if (e.target instanceof HTMLInputElement && e.target.type === 'range' && e.code.startsWith('Arrow')) return;
   if (MOVE_KEYS.includes(e.code)) e.preventDefault();
   if (dialog.open) {
     if (e.code === 'Escape' || e.code === 'KeyE') {
@@ -140,6 +144,7 @@ window.addEventListener('keydown', (e) => {
     return;
   }
   keys.add(e.code);
+  if (e.code === 'KeyM' && !e.repeat) toggleMusic();
   if (e.code === 'Space' && !e.repeat) input.jump = true;
   if (e.code === 'KeyE' && !e.repeat) interact();
 });
@@ -301,6 +306,52 @@ timeBtn.addEventListener('click', () => {
 renderTimeBtn();
 
 // ---------------------------------------------------------------------------
+// Background music
+// ---------------------------------------------------------------------------
+
+const storedVolume = Number(storageGet('clcl-music-vol'));
+const music = new Music(bgmUrl, {
+  on: storageGet('clcl-music') !== '0',
+  volume: storageGet('clcl-music-vol') !== null && Number.isFinite(storedVolume) ? Math.min(100, Math.max(0, storedVolume)) : 40,
+});
+const musicBtn = $('#musicBtn');
+const musicVol = $('#musicVol');
+function renderMusic() {
+  musicBtn.textContent = music.audible ? '🔊' : '🔇';
+  const label = music.audible ? '배경음악 끄기' : '배경음악 켜기';
+  musicBtn.setAttribute('aria-label', label);
+  musicBtn.title = label;
+  musicVol.value = String(music.volume);
+  musicVol.style.setProperty('--fill', `${music.volume}%`);
+}
+function toggleMusic() {
+  if (music.audible) {
+    music.setOn(false);
+  } else {
+    // Turning on at volume 0 would stay silent, so it comes back at the default level.
+    if (music.volume === 0) music.setVolume(40);
+    music.setOn(true);
+  }
+  storageSet('clcl-music', music.on ? '1' : '0');
+  storageSet('clcl-music-vol', String(music.volume));
+  renderMusic();
+}
+musicBtn.addEventListener('click', () => {
+  toggleMusic();
+  musicBtn.blur();
+});
+musicVol.addEventListener('input', () => {
+  music.setVolume(Number(musicVol.value));
+  if (music.volume > 0 && !music.on) music.setOn(true);
+  storageSet('clcl-music', music.on ? '1' : '0');
+  storageSet('clcl-music-vol', String(music.volume));
+  renderMusic();
+});
+// Hand the keyboard back to the game after dragging, so arrow keys move the player again.
+musicVol.addEventListener('pointerup', () => musicVol.blur());
+renderMusic();
+
+// ---------------------------------------------------------------------------
 // Camera
 // ---------------------------------------------------------------------------
 
@@ -394,6 +445,7 @@ function enterTown({ quiet = false } = {}) {
   }, 600);
   $('#hud').hidden = false;
   minimap.resize();
+  music.start();
   if (!quiet) setTimeout(() => toast('클클 타운에 온 걸 환영해요! 광장의 마을 안내판에서 농장 목록을 볼 수 있어요.', 5200), 1700);
 }
 

@@ -21,6 +21,10 @@
       <div class="map-wrap">
         <canvas id="minimap" aria-label="마을 지도"></canvas>
         <button id="timeBtn" type="button"></button>
+        <div class="music">
+          <button id="musicBtn" type="button"></button>
+          <input id="musicVol" type="range" min="0" max="100" step="5" aria-label="배경음악 볼륨" />
+        </div>
       </div>
       <div id="area" class="area-banner" aria-live="polite"></div>
       <div id="prompt" class="prompt" hidden></div>
@@ -30,6 +34,7 @@
         <span><kbd>Space</kbd> 점프</span>
         <span><kbd>E</kbd> 보기·인사하기</span>
         <span><kbd>휠</kbd> 확대·축소</span>
+        <span><kbd>M</kbd> 배경음악</span>
       </div>
       <div id="touch">
         <div id="joy"><div id="joyKnob"></div></div>

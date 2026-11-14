@@ -273,6 +273,78 @@ kbd {
   box-shadow: 0 1px 0 rgba(43, 42, 61, 0.25);
 }
 
+.music {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 12px 2px 4px;
+  border: 2.5px solid var(--ink);
+  border-radius: 999px;
+  background: var(--paper);
+  box-shadow: 0 3px 0 rgba(43, 42, 61, 0.25);
+}
+
+#musicBtn {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  background: none;
+  font-size: 15px;
+  line-height: 1;
+}
+
+#musicBtn:active {
+  transform: translateY(1px);
+}
+
+/* A chunky pixel slider: the filled part of the track is drawn from --fill. */
+#musicVol {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 84px;
+  height: 8px;
+  margin: 0;
+  border: 1.5px solid var(--ink);
+  border-radius: 4px;
+  background: linear-gradient(to right, #6fbdf2 var(--fill, 40%), #fff var(--fill, 40%));
+  cursor: pointer;
+}
+
+#musicVol::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--ink);
+  border-radius: 3px;
+  background: var(--paper);
+}
+
+#musicVol::-moz-range-thumb {
+  width: 10px;
+  height: 10px;
+  border: 2px solid var(--ink);
+  border-radius: 3px;
+  background: var(--paper);
+}
+
+#musicVol:focus-visible {
+  outline: 2px solid #6fbdf2;
+  outline-offset: 3px;
+}
+
+body.touch #musicVol {
+  width: 96px;
+}
+
+body.touch #musicVol::-webkit-slider-thumb {
+  width: 20px;
+  height: 20px;
+}
+
 .area-banner {
   position: fixed;
   top: calc(18px + var(--safe-t));
