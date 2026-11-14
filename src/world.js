@@ -97,7 +97,43 @@ const STYLES = [
   { kind: 'cottage', label: '파란 지붕 집', wall: '#f7dcd6', trim: '#ffffff', roof: '#4e7fc4', door: '#7d5a44' },
   { kind: 'cottage', label: '보라 지붕 집', wall: '#e9eef3', trim: '#ffffff', roof: '#8c62b8', door: '#6d4c35' },
   { kind: 'cottage', label: '초록 지붕 집', wall: '#f1ecd2', trim: '#ffffff', roof: '#5a9b56', door: '#8a5a36' },
+  { kind: 'log', label: '초록 지붕 통나무집', wall: '#a9744a', trim: '#5f4129', roof: '#4f6b52', door: '#7a5334' },
+  { kind: 'log', label: '빨간 지붕 통나무집', wall: '#a9744a', trim: '#5f4129', roof: '#a04a3c', door: '#7a5334' },
+  { kind: 'stone', label: '볏짚 지붕 돌집', wall: '#b9b3a6', trim: '#d6d0c2', roof: '#d9b65a', door: '#7a5334' },
+  { kind: 'stone', label: '파란 지붕 돌집', wall: '#b9b3a6', trim: '#d6d0c2', roof: '#5b6d84', door: '#7a5334' },
+  { kind: 'mushroom', label: '빨간 버섯 집', wall: '#f6ecd6', trim: '#e3d6b8', roof: '#d9483b', door: '#8a5a36' },
+  { kind: 'mushroom', label: '파란 버섯 집', wall: '#f6ecd6', trim: '#e3d6b8', roof: '#4e9fc4', door: '#8a5a36' },
+  { kind: 'twostory', label: '노란 이층집', wall: '#f6e3a1', trim: '#ffffff', roof: '#3f8f8a', door: '#7d5a44' },
+  { kind: 'twostory', label: '민트 이층집', wall: '#cfe8d8', trim: '#ffffff', roof: '#e07a5f', door: '#7d5a44' },
+  { kind: 'hanok', label: '기와집', wall: '#f3efe4', trim: '#6b4a32', roof: '#4a4f58', door: '#f5edd6', accent: '#6f7682' },
+  { kind: 'hanok', label: '청기와집', wall: '#f3efe4', trim: '#6b4a32', roof: '#3f6f7a', door: '#f5edd6' },
 ];
+
+// The first eight styles are the original ones. Each farm's seeded sequence still starts with a
+// pick among them (see buildFarm), so adding styles never moves a farm's crops or flowers.
+const CLASSIC = 8;
+const KINDS = ['barn', 'cottage', 'log', 'stone', 'mushroom', 'twostory', 'hanok'];
+
+/**
+ * The building kind of every farm. Kinds are dealt like cards, one full deck after another,
+ * so the town gets an even mix; the color comes from the owner's name.
+ */
+function dealStyles(owners, seed, shuffle) {
+  const salt = shuffle ? `|${Math.random()}` : '';
+  let deck = [];
+  return owners.map((owner, i) => {
+    if (!deck.length) {
+      const r = makeRng(`${seed}|houses|${Math.floor(i / KINDS.length)}${salt}`);
+      deck = [...KINDS];
+      for (let k = deck.length - 1; k > 0; k--) {
+        const j = Math.floor(r.next() * (k + 1));
+        [deck[k], deck[j]] = [deck[j], deck[k]];
+      }
+    }
+    const kind = deck.pop();
+    return makeRng(`${seed}|${owner}|house${salt}`).pick(STYLES.filter((st) => st.kind === kind));
+  });
+}
 
 // ---------------------------------------------------------------------------
 // Layout: a grid of cells. The plaza takes the middle cell; farms fill the
@@ -177,6 +213,8 @@ export function buildWorld(scene, owners, { seed, shuffle, animalsPerFarm = 1, p
   const worldRng = makeRng(`${seed}|world`);
   const lampHeads = new Voxels();
   const decor = SEASON.christmas ? { bulbs: [new Voxels(), new Voxels()] } : null;
+  const styles = dealStyles(owners, seed, shuffle);
+  const pads = new Voxels();
 
   const addCollider = (cx, cz, w, d, h = 10) => {
     colliders.push({ minX: cx - w / 2, maxX: cx + w / 2, minZ: cz - d / 2, maxZ: cz + d / 2, h });
@@ -257,8 +295,9 @@ export function buildWorld(scene, owners, { seed, shuffle, animalsPerFarm = 1, p
   owners.forEach((owner, i) => {
     const cell = L.farmCells[i];
     const rng = makeRng(shuffle ? `${seed}|${owner}|${Math.random()}` : `${seed}|${owner}`);
-    const farm = buildFarm(scene, cell, owner, i, rng, addCollider, animalsPerFarm, ownerGames.get(owner) || [], decor);
+    const farm = buildFarm(scene, cell, owner, i, rng, addCollider, animalsPerFarm, ownerGames.get(owner) || [], decor, styles[i]);
     farms.push(farm);
+    addPad(pads, farm.door.x, farm.door.z + PAD_OFFSET);
     for (const a of farm.animals) {
       scene.add(a.object);
       animals.push(a);
@@ -370,6 +409,16 @@ export function buildWorld(scene, owners, { seed, shuffle, animalsPerFarm = 1, p
     });
   }
 
+  // Glowing pads in front of every house door, with sparkles drifting up from them.
+  const padMaterial = new THREE.MeshBasicMaterial({ vertexColors: true });
+  scene.add(pads.mesh(padMaterial, { cast: false, receive: false }));
+  const sparkles = padSparkles(farms.map((f) => ({ x: f.door.x, z: f.door.z + PAD_OFFSET })));
+  scene.add(sparkles.mesh);
+  updaters.push((dt, t) => {
+    padMaterial.color.setScalar(0.9 + 0.1 * Math.sin(t * 2.2));
+    sparkles.update(t);
+  });
+
   const bounds = { minX: -W / 2 - 2.5, maxX: W / 2 + 2.5, minZ: -D / 2 - 2.5, maxZ: D / 2 + 2.5 };
 
   return {
@@ -453,16 +502,18 @@ function pickAnimals(rng, count) {
   return [...byType.values()];
 }
 
-function buildFarm(scene, cell, owner, index, rng, addCollider, animalCount, games, decor) {
+function buildFarm(scene, cell, owner, index, rng, addCollider, animalCount, games, decor, style) {
   const cx = cell.x;
   const cz = cell.z;
   const v = new Voxels();
-  const style = rng.pick(STYLES);
+  // The seeded sequence used to pick the building here. The pick stays so that everything
+  // after it (side, crop, flowers) comes out the same as before the building kinds grew.
+  const classic = rng.pick(STYLES.slice(0, CLASSIC));
   const side = rng.sign(); // which side the barn sits on
   const cropKey = rng.pick(Object.keys(CROPS));
   const fence = rng.pick(['#f6f1e6', '#b98657', '#f6f1e6', '#a7754b']);
   const middle = rng.pick(['tree', 'silo', 'hay', 'apple', 'silo']);
-  const accent = style.kind === 'barn' ? style.wall : style.roof;
+  const accent = style.accent || (style.kind === 'barn' ? style.wall : style.roof);
 
   // ground inside the fence
   v.box(cx, 0, cz, PLOT, 0.03, PLOT, COLOR.plotGrass);
@@ -500,8 +551,10 @@ function buildFarm(scene, cell, owner, index, rng, addCollider, animalCount, gam
   // barn / cottage
   // Tall props go in their own mesh so they can fade when the player walks behind them.
   const tall = new Voxels();
-  buildHouse(tall, bx, bz, style, rng, decor);
-  addCollider(bx, bz, 7.2, 6.2, 8);
+  // The old cottage drew ten flower colors from the farm's sequence; keep its place in line.
+  if (classic.kind === 'cottage') for (let k = 0; k < 10; k++) rng.next();
+  const house = buildHouse(tall, bx, bz, style, makeRng(`${owner}|house`), decor);
+  addCollider(bx, bz + house.oz, house.w + 0.2, house.d + 0.2, 10);
 
   // crop field
   buildCrops(v, cx - side * 6, cz - 7, cropKey, rng);
@@ -573,6 +626,8 @@ function buildFarm(scene, cell, owner, index, rng, addCollider, animalCount, gam
   return {
     index, owner, cx, cz, accent, style, crop: CROPS[cropKey], cropKey, herd, games, animals, tallMaterial,
     labelAnchor: new THREE.Vector3(cx, 5.2, cz + 6),
+    // The front door: walking into it enters the house (see main.js).
+    door: { x: bx, z: bz + 3, half: house.doorHalf },
     gate: { x: cx, z: cz + H + 3.6 },
   };
 }
@@ -612,44 +667,74 @@ function buildFence(v, cx, cz, color) {
   rail(cx + (H + 2.3) / 2, cz + H, H - 2.3, true);
 }
 
+/**
+ * Builds a farm's house. Every kind keeps its front door in the middle of the front wall
+ * (z = bz + 3) so the farm path leads to it. Returns the footprint for the collider
+ * (`w`, `d`, and `oz`, the footprint's offset in z) and the half width of the doorway.
+ */
 function buildHouse(v, bx, bz, st, rng, decor) {
-  const Wd = 7;
-  const Dp = 6;
-  const front = bz + Dp / 2;
-  v.box(bx, 0, bz, Wd + 0.3, 0.3, Dp + 0.3, '#a59d90');
-  v.box(bx, 0.3, bz, Wd, 3.0, Dp, st.wall, { jitter: 0.02 });
-  // corner trims
-  for (const sx of [-1, 1]) {
-    for (const sz of [-1, 1]) {
-      v.box(bx + sx * (Wd / 2 - 0.1), 0.3, bz + sz * (Dp / 2 - 0.1), 0.27, 3.0, 0.27, st.trim);
+  const front = bz + 3;
+  const h = HOUSES[st.kind](v, bx, bz, front, st, rng);
+  if (decor) {
+    // Fairy lights along the front eave, sagging a little between hooks.
+    const { y, z, w } = h.eave;
+    v.box(bx, y, z, w, 0.03, 0.03, '#2f3b2f');
+    const n = Math.floor((w - 0.12) / 0.48);
+    for (let i = 0; i <= n; i++) {
+      const sag = i % 4 === 2 ? 0.1 : i % 2 ? 0.05 : 0;
+      decor.bulbs[i % 2].box(bx - (n * 0.48) / 2 + i * 0.48, y - 0.19 - sag, z, 0.15, 0.18, 0.15, BULB_COLORS[i % BULB_COLORS.length]);
     }
+    // Wreath on the door.
+    addWreath(v, bx, h.wreath.y, h.wreath.z);
   }
-  // stepped gable roof
-  const widths = [7.9, 6.5, 5.1, 3.7, 2.3, 0.9];
+  return { w: 7, d: 6, oz: 0, ...h };
+}
+
+/** Stepped gable roof whose ridge runs front to back. `inner` fills the gable ends. */
+function gableRoof(v, bx, bz, y0, widths, depth, roof, inner) {
   widths.forEach((w, i) => {
-    const y = 3.3 + i * 0.45;
-    v.box(bx, y, bz, w, 0.45, Dp + 0.6, st.roof, { jitter: 0.03 });
-    if (w - 1 > 0.2) v.box(bx, y, bz, w - 1, 0.44, Dp + 0.66, st.wall);
+    const y = y0 + i * 0.45;
+    v.box(bx, y, bz, w, 0.45, depth, roof, { jitter: 0.03 });
+    if (w - 1 > 0.2) v.box(bx, y, bz, w - 1, 0.44, depth + 0.06, inner);
     if (SEASON.snow) {
       // Snow on each step's exposed tread; the next step covers the middle.
       const next = widths[i + 1];
-      if (next) mirrorX((s) => v.box(bx + s * (w + next) / 4, y + 0.45, bz, (w - next) / 2, 0.12, Dp + 0.64, SNOW));
-      else v.box(bx, y + 0.45, bz, w + 0.04, 0.16, Dp + 0.64, SNOW);
+      if (next) mirrorX((s) => v.box(bx + s * (w + next) / 4, y + 0.45, bz, (w - next) / 2, 0.12, depth + 0.04, SNOW));
+      else v.box(bx, y + 0.45, bz, w + 0.04, 0.16, depth + 0.04, SNOW);
     }
   });
-  if (decor) {
-    // Fairy lights along the front eave, sagging a little between hooks.
-    const zf = front + 0.36;
-    v.box(bx, 3.27, zf, 7.8, 0.03, 0.03, '#2f3b2f');
-    for (let i = 0; i <= 16; i++) {
-      const sag = i % 4 === 2 ? 0.1 : i % 2 ? 0.05 : 0;
-      decor.bulbs[i % 2].box(bx - 3.84 + i * 0.48, 3.08 - sag, zf, 0.15, 0.18, 0.15, BULB_COLORS[i % BULB_COLORS.length]);
-    }
-    // Wreath on the door.
-    addWreath(v, bx, st.kind === 'barn' ? 1.5 : 1.55, front + (st.kind === 'barn' ? 0.12 : 0.08));
-  }
+}
 
-  if (st.kind === 'barn') {
+/** Stepped roof that slopes on all four sides. `layers` are [width, depth] from the eave up. */
+function hipRoof(v, bx, bz, y0, layers, h, roof, jitter = 0.04) {
+  layers.forEach(([w, d], i) => {
+    const y = y0 + i * h;
+    v.box(bx, y, bz, w, h, d, roof, { jitter });
+    // Each layer's snow is hidden in the middle by the layer above it.
+    if (SEASON.snow) v.box(bx, y + h, bz, w + 0.04, 0.12, d + 0.04, SNOW);
+  });
+}
+
+/** An eight-sided slab made of three boxes, for round things. */
+function oct(v, x, y, z, r, h, color, opt) {
+  v.box(x, y, z, r * 2, h, r * 1.2, color, opt);
+  v.box(x, y, z, r * 1.2, h, r * 2, color, opt);
+  v.box(x, y, z, r * 1.68, h, r * 1.68, color, opt);
+}
+
+const STANDARD_ROOF = [7.9, 6.5, 5.1, 3.7, 2.3, 0.9];
+
+/** A framed window on the front wall with a cross bar. */
+function frontWindow(v, x, y, z, w, h, frame, pane = '#bfe3f2') {
+  v.box(x, y, z + 0.02, w + 0.25, h + 0.2, 0.06, frame);
+  v.box(x, y + 0.08, z + 0.05, w, h, 0.04, pane);
+  v.box(x, y + 0.08, z + 0.08, 0.08, h, 0.02, frame);
+  v.box(x, y + 0.08 + h / 2 - 0.04, z + 0.08, w, 0.08, 0.02, frame);
+}
+
+const HOUSES = {
+  barn(v, bx, bz, front, st) {
+    classicShell(v, bx, bz, st);
     // big door with an X brace
     v.box(bx, 0.3, front + 0.02, 2.9, 2.45, 0.06, st.trim);
     v.box(bx, 0.3, front + 0.06, 2.5, 2.25, 0.04, st.door);
@@ -662,11 +747,15 @@ function buildHouse(v, bx, bz, st, rng, decor) {
     v.box(bx, 3.55, front + 0.38, 0.8, 0.7, 0.03, '#3b2a20');
     // side windows
     for (const sx of [-1, 1]) {
-      v.box(bx + sx * (Wd / 2 + 0.01), 1.7, bz, 0.04, 0.8, 1.0, st.trim);
-      v.box(bx + sx * (Wd / 2 + 0.03), 1.8, bz, 0.03, 0.6, 0.8, '#3b2a20');
+      v.box(bx + sx * 3.51, 1.7, bz, 0.04, 0.8, 1.0, st.trim);
+      v.box(bx + sx * 3.53, 1.8, bz, 0.03, 0.6, 0.8, '#3b2a20');
     }
-  } else {
-    // cottage: door, windows with flower boxes, chimney
+    return { doorHalf: 1.1, eave: { y: 3.27, z: front + 0.36, w: 7.8 }, wreath: { y: 1.5, z: front + 0.12 } };
+  },
+
+  cottage(v, bx, bz, front, st, rng) {
+    classicShell(v, bx, bz, st);
+    // door, windows with flower boxes, chimney
     v.box(bx, 0.3, front + 0.02, 1.3, 2.1, 0.06, st.trim);
     v.box(bx, 0.3, front + 0.05, 1.05, 1.95, 0.04, st.door);
     v.box(bx + 0.32, 1.2, front + 0.08, 0.1, 0.1, 0.04, '#ffd34d');
@@ -682,7 +771,299 @@ function buildHouse(v, bx, bz, st, rng, decor) {
     v.box(bx + 1.8, 4.2, bz - 1.2, 0.8, 2.4, 0.8, '#b0645a');
     v.box(bx + 1.8, 6.6, bz - 1.2, 0.95, 0.2, 0.95, '#8f4f47');
     if (SEASON.snow) v.box(bx + 1.8, 6.8, bz - 1.2, 0.99, 0.1, 0.99, SNOW);
+    return { doorHalf: 0.5, eave: { y: 3.27, z: front + 0.36, w: 7.8 }, wreath: { y: 1.55, z: front + 0.08 } };
+  },
+
+  // Log cabin: stacked logs that cross at the corners, a plank door and a stone chimney.
+  log(v, bx, bz, front, st) {
+    const logs = [st.wall, '#96633c'];
+    v.box(bx, 0, bz, 7.3, 0.3, 6.3, '#8f8a80');
+    for (let i = 0; i < 7; i++) {
+      const y = 0.3 + i * 0.43;
+      v.box(bx, y, bz, 7, 0.43, 6, logs[i % 2], { jitter: 0.03 });
+      v.box(bx, y + 0.4, bz, 7.02, 0.03, 6.02, '#7d5231');
+      for (const sx of [-1, 1]) {
+        for (const sz of [-1, 1]) {
+          if (i % 2) v.box(bx + sx * 3.62, y + 0.04, bz + sz * 2.75, 0.5, 0.35, 0.36, logs[1]);
+          else v.box(bx + sx * 3.25, y + 0.04, bz + sz * 3.12, 0.36, 0.35, 0.5, logs[0]);
+        }
+      }
+    }
+    gableRoof(v, bx, bz, 3.3, STANDARD_ROOF, 6.6, st.roof, logs[1]);
+    // plank door
+    v.box(bx, 0.3, front + 0.02, 1.4, 2.15, 0.06, st.trim);
+    v.box(bx, 0.3, front + 0.05, 1.1, 2.0, 0.04, st.door);
+    for (const dx of [-0.19, 0.19]) v.box(bx + dx, 0.3, front + 0.07, 0.04, 2.0, 0.02, st.trim);
+    v.box(bx + 0.36, 1.25, front + 0.09, 0.1, 0.22, 0.04, '#2f2a26');
+    // window with shutters in the roof's color
+    const wx = bx - 2.15;
+    frontWindow(v, wx, 1.25, front, 0.95, 0.9, st.trim);
+    mirrorX((s) => v.box(wx + s * 0.82, 1.27, front + 0.04, 0.38, 1.02, 0.05, st.roof));
+    // firewood stacked by the door
+    for (let r = 0; r < 3; r++) {
+      for (let k = 0; k < 4 - r; k++) {
+        const fx = bx + 1.55 + r * 0.17 + k * 0.34;
+        v.box(fx, 0.3 + r * 0.3, front + 0.2, 0.3, 0.3, 0.36, '#8a6040');
+        v.box(fx, 0.37 + r * 0.3, front + 0.39, 0.18, 0.16, 0.02, '#d9b98a');
+      }
+    }
+    // stone chimney
+    v.box(bx - 2.0, 3.9, bz - 1.2, 0.95, 2.7, 0.95, '#9a958c', { jitter: 0.04 });
+    v.box(bx - 2.0, 6.6, bz - 1.2, 1.1, 0.2, 1.1, '#7f7a72');
+    if (SEASON.snow) v.box(bx - 2.0, 6.8, bz - 1.2, 1.14, 0.1, 1.14, SNOW);
+    return { doorHalf: 0.5, eave: { y: 3.27, z: front + 0.36, w: 7.8 }, wreath: { y: 1.6, z: front + 0.09 } };
+  },
+
+  // Stone house: rough stone walls, pale corner stones and a thick stepped roof.
+  stone(v, bx, bz, front, st, rng) {
+    const stones = ['#a8a296', '#c9c3b5', '#9d978b', '#c2bcae'];
+    v.box(bx, 0, bz, 7.3, 0.3, 6.3, '#8f8a80');
+    v.box(bx, 0.3, bz, 7, 3.0, 6, st.wall, { jitter: 0.02 });
+    for (let k = 0; k < 34; k++) {
+      const x = rng.range(-3.1, 3.1);
+      const y = rng.range(0.4, 2.85);
+      const w = rng.range(0.45, 0.8);
+      const hgt = rng.range(0.24, 0.38);
+      const color = rng.pick(stones);
+      if (Math.abs(x) < 1.15 && y < 2.75) continue; // door
+      if (Math.abs(Math.abs(x) - 2.2) < 1.05 && y > 0.8 && y < 2.5) continue; // windows
+      v.box(bx + x, y, front + 0.01, w, hgt, 0.05, color);
+    }
+    for (const sx of [-1, 1]) {
+      for (let k = 0; k < 12; k++) {
+        v.box(bx + sx * 3.51, rng.range(0.4, 2.85), bz + rng.range(-2.5, 2.5), 0.05, rng.range(0.24, 0.38), rng.range(0.45, 0.8), rng.pick(stones));
+      }
+      // corner stones, long and short in turn
+      for (const sz of [-1, 1]) {
+        for (let i = 0; i < 6; i++) {
+          v.box(bx + sx * 3.36, 0.3 + i * 0.5, bz + sz * 2.86, i % 2 ? 0.6 : 0.4, 0.5, i % 2 ? 0.4 : 0.6, st.trim);
+        }
+      }
+    }
+    hipRoof(v, bx, bz, 3.3, [[8, 7], [6.8, 5.8], [5.6, 4.6], [4.2, 3.2], [2.6, 1.6]], 0.5, st.roof, 0.06);
+    // arched door
+    v.box(bx, 0.3, front + 0.02, 1.4, 2.0, 0.06, st.trim);
+    v.box(bx, 2.3, front + 0.02, 1.0, 0.24, 0.06, st.trim);
+    v.box(bx, 0.3, front + 0.05, 1.1, 1.9, 0.04, st.door);
+    v.box(bx, 2.2, front + 0.05, 0.7, 0.22, 0.04, st.door);
+    v.box(bx, 1.3, front + 0.08, 1.1, 0.1, 0.02, '#4a3a2c');
+    v.box(bx + 0.34, 1.05, front + 0.09, 0.1, 0.1, 0.04, '#2f2a26');
+    // windows with wooden shutters
+    for (const sx of [-1, 1]) {
+      const wx = bx + sx * 2.2;
+      frontWindow(v, wx, 1.2, front, 0.8, 0.9, st.trim);
+      mirrorX((s) => v.box(wx + s * 0.72, 1.24, front + 0.04, 0.32, 1.0, 0.05, st.door));
+    }
+    v.box(bx + 2.0, 4.3, bz - 1.4, 0.9, 2.0, 0.9, '#9a958c', { jitter: 0.04 });
+    v.box(bx + 2.0, 6.3, bz - 1.4, 1.05, 0.2, 1.05, '#7f7a72');
+    if (SEASON.snow) v.box(bx + 2.0, 6.5, bz - 1.4, 1.09, 0.1, 1.09, SNOW);
+    return { doorHalf: 0.5, eave: { y: 3.27, z: front + 0.56, w: 7.8 }, wreath: { y: 1.55, z: front + 0.08 } };
+  },
+
+  // Mushroom house: a round stalk under a wide spotted cap.
+  mushroom(v, bx, bz, front, st, rng) {
+    const cz = bz + 0.3; // the stalk is 5.4 deep, so its front wall still sits at `front`
+    oct(v, bx, 0, cz, 2.82, 0.3, st.trim);
+    oct(v, bx, 0.3, cz, 2.7, 2.5, st.wall, { jitter: 0.02 });
+    oct(v, bx, 2.66, bz + 0.1, 3.5, 0.16, '#f3e3c4');
+    const cap = [[3.9, 0.45], [3.7, 0.5], [3.2, 0.5], [2.6, 0.5], [1.8, 0.45], [0.9, 0.3]];
+    let y = 2.8;
+    cap.forEach(([r, hgt], i) => {
+      oct(v, bx, y, bz + 0.1, r, hgt, st.roof, { jitter: 0.03 });
+      const next = cap[i + 1];
+      if (SEASON.snow) oct(v, bx, y + hgt, bz + 0.1, r + 0.02, 0.12, SNOW);
+      else if (next && i > 0) {
+        // white spots on the steps of the cap
+        const n = 6 - i;
+        for (let k = 0; k < n; k++) {
+          const a = (k / n) * Math.PI * 2 + rng.range(-0.3, 0.3);
+          const rr = (r + next[0]) / 2 - 0.12;
+          v.box(bx + Math.cos(a) * rr * 0.92, y + hgt, bz + 0.1 + Math.sin(a) * rr * 0.92, 0.5, 0.08, 0.5, '#fffaf0');
+        }
+      }
+      // and on the front of the cap
+      if (i > 0 && i < 4) v.box(bx + rng.range(-0.5, 0.5) * r * 0.5, y + 0.1, bz + 0.1 + r + 0.01, 0.5, 0.28, 0.04, '#fffaf0');
+      y += hgt;
+    });
+    // round door
+    v.box(bx, 0.3, front + 0.02, 1.3, 1.85, 0.06, '#c9a26a');
+    v.box(bx, 2.15, front + 0.02, 0.9, 0.22, 0.06, '#c9a26a');
+    v.box(bx, 0.3, front + 0.05, 1.0, 1.75, 0.04, st.door);
+    v.box(bx, 2.05, front + 0.05, 0.6, 0.2, 0.04, st.door);
+    v.box(bx + 0.3, 1.1, front + 0.08, 0.1, 0.1, 0.04, '#ffd34d');
+    // round windows
+    for (const sx of [-1, 1]) {
+      const wx = bx + sx * 1.2;
+      v.box(wx, 1.25, front + 0.02, 0.7, 0.46, 0.05, '#c9a26a');
+      v.box(wx, 1.13, front + 0.02, 0.46, 0.7, 0.05, '#c9a26a');
+      v.box(wx, 1.3, front + 0.05, 0.52, 0.36, 0.04, '#bfe3f2');
+      v.box(wx, 1.22, front + 0.05, 0.36, 0.52, 0.04, '#bfe3f2');
+    }
+    // little chimney pipe
+    v.box(bx + 1.7, 4.4, bz - 0.9, 0.4, 1.3, 0.4, st.trim);
+    v.box(bx + 1.7, 5.7, bz - 0.9, 0.56, 0.14, 0.56, '#c9b891');
+    return {
+      w: 5.4, d: 5.4, oz: 0.3, doorHalf: 0.45,
+      eave: { y: 2.77, z: bz + 4.05, w: 4.4 }, wreath: { y: 1.45, z: front + 0.08 },
+    };
+  },
+
+  // Two-story house: narrow and tall, with a balcony over the door.
+  twostory(v, bx, bz, front, st) {
+    const Wd = 5.8;
+    v.box(bx, 0, bz, Wd + 0.3, 0.3, 6.3, '#a59d90');
+    v.box(bx, 0.3, bz, Wd, 5.4, 6, st.wall, { jitter: 0.02 });
+    for (const sx of [-1, 1]) {
+      for (const sz of [-1, 1]) v.box(bx + sx * (Wd / 2 - 0.1), 0.3, bz + sz * 2.9, 0.27, 5.4, 0.27, st.trim);
+    }
+    v.box(bx, 2.95, bz, Wd + 0.1, 0.18, 6.1, st.trim);
+    gableRoof(v, bx, bz, 5.7, [6.7, 5.5, 4.3, 3.1, 1.9, 0.8], 6.6, st.roof, st.wall);
+    // door and ground floor windows
+    v.box(bx, 0.3, front + 0.02, 1.3, 2.1, 0.06, st.trim);
+    v.box(bx, 0.3, front + 0.05, 1.05, 1.95, 0.04, st.door);
+    v.box(bx + 0.32, 1.2, front + 0.08, 0.1, 0.1, 0.04, '#ffd34d');
+    for (const sx of [-1, 1]) frontWindow(v, bx + sx * 1.95, 1.15, front, 0.8, 0.95, st.trim);
+    // balcony on brackets, with a glass door behind it
+    v.box(bx, 2.95, front + 0.45, 2.7, 0.14, 0.9, st.trim);
+    mirrorX((s) => v.box(bx + s * 1.1, 2.55, front + 0.2, 0.14, 0.4, 0.4, st.trim));
+    v.box(bx, 3.6, front + 0.86, 2.7, 0.08, 0.08, st.roof);
+    for (let k = -3; k <= 3; k++) v.box(bx + k * 0.43, 3.09, front + 0.86, 0.07, 0.52, 0.07, st.roof);
+    mirrorX((s) => v.box(bx + s * 1.31, 3.6, front + 0.45, 0.08, 0.08, 0.9, st.roof));
+    v.box(bx, 3.13, front + 0.02, 1.25, 1.85, 0.06, st.trim);
+    v.box(bx, 3.2, front + 0.05, 1.0, 1.7, 0.04, '#bfe3f2');
+    v.box(bx, 3.2, front + 0.08, 0.08, 1.7, 0.02, st.trim);
+    for (const sx of [-1, 1]) frontWindow(v, bx + sx * 1.95, 3.75, front, 0.8, 0.95, st.trim);
+    // round window under the ridge
+    v.box(bx, 6.35, front + 0.33, 0.8, 0.8, 0.04, st.trim);
+    v.box(bx, 6.45, front + 0.36, 0.6, 0.6, 0.03, '#bfe3f2');
+    v.box(bx - 1.5, 6.4, bz - 1.4, 0.8, 2.2, 0.8, '#b0645a');
+    v.box(bx - 1.5, 8.6, bz - 1.4, 0.95, 0.2, 0.95, '#8f4f47');
+    if (SEASON.snow) v.box(bx - 1.5, 8.8, bz - 1.4, 0.99, 0.1, 0.99, SNOW);
+    return { w: Wd, doorHalf: 0.5, eave: { y: 5.67, z: front + 0.36, w: 6.6 }, wreath: { y: 1.55, z: front + 0.08 } };
+  },
+
+  // Korean tiled house: wooden pillars, paper lattice doors and a wide roof with lifted corners.
+  hanok(v, bx, bz, front, st) {
+    const wood = st.trim;
+    const paper = st.door;
+    v.box(bx, 0, bz, 7.3, 0.4, 6.3, '#b5afa3', { jitter: 0.02 });
+    v.box(bx, 0.4, bz, 6.8, 2.7, 5.8, st.wall);
+    // pillars and beams
+    for (const x of [-3.3, -1.15, 1.15, 3.3]) {
+      v.box(bx + x, 0.4, bz + 2.84, 0.3, 2.7, 0.3, wood);
+      v.box(bx + x, 0.4, bz - 2.84, 0.3, 2.7, 0.3, wood);
+    }
+    v.box(bx, 2.82, bz + 2.84, 6.9, 0.28, 0.32, wood);
+    v.box(bx, 0.4, bz + 2.84, 6.9, 0.14, 0.32, wood);
+    mirrorX((s) => v.box(bx + s * 3.3, 2.82, bz, 0.3, 0.28, 5.9, wood));
+    // lattice doors in the middle bay
+    v.box(bx, 0.54, bz + 2.93, 2.0, 2.28, 0.06, paper);
+    for (const dx of [-0.75, -0.5, -0.25, 0.25, 0.5, 0.75]) v.box(bx + dx, 0.54, bz + 2.97, 0.04, 2.28, 0.02, wood);
+    v.box(bx, 0.54, bz + 2.97, 0.1, 2.28, 0.03, wood);
+    for (const yy of [0.95, 1.5, 2.05, 2.5]) v.box(bx, yy, bz + 2.97, 2.0, 0.04, 0.02, wood);
+    // lattice windows in the side bays
+    for (const sx of [-1, 1]) {
+      const wx = bx + sx * 2.22;
+      v.box(wx, 1.2, bz + 2.91, 1.5, 1.2, 0.05, wood);
+      v.box(wx, 1.28, bz + 2.93, 1.34, 1.04, 0.05, paper);
+      for (const dx of [-0.45, -0.15, 0.15, 0.45]) v.box(wx + dx, 1.28, bz + 2.97, 0.04, 1.04, 0.02, wood);
+      for (const yy of [1.55, 1.95]) v.box(wx, yy, bz + 2.97, 1.34, 0.04, 0.02, wood);
+    }
+    // roof: rafters, a wide eave with lifted corners, then tiles up to the ridge
+    const tile = st.roof;
+    v.box(bx, 3.1, bz, 8.0, 0.1, 6.9, wood);
+    v.box(bx, 3.2, bz, 8.6, 0.26, 7.4, tile, { jitter: 0.03 });
+    for (const sx of [-1, 1]) {
+      for (const sz of [-1, 1]) {
+        v.box(bx + sx * 4.1, 3.36, bz + sz * 3.5, 0.8, 0.2, 0.8, tile);
+        v.box(bx + sx * 4.3, 3.5, bz + sz * 3.7, 0.45, 0.2, 0.45, tile);
+      }
+    }
+    const layers = [[7.6, 6.2], [6.6, 4.8], [5.8, 3.4], [5.2, 2.0]];
+    hipRoof(v, bx, bz, 3.46, layers, 0.4, tile, 0.03);
+    if (!SEASON.snow) {
+      // rows of round tiles running down the front and back slopes
+      const ridge = new THREE.Color(tile).offsetHSL(0, 0, 0.09).getStyle();
+      const edges = [7.4, ...layers.map((l) => l[1]), 0.6];
+      layers.forEach(([w], i) => {
+        const tread = (edges[i] - edges[i + 1]) / 2;
+        for (let x = -w / 2 + 0.3; x <= w / 2 - 0.29; x += 0.5) {
+          for (const sz of [-1, 1]) v.box(bx + x, 3.46 + i * 0.4, bz + sz * (edges[i + 1] / 2 + tread / 2), 0.14, 0.06, tread, ridge);
+        }
+      });
+    }
+    v.box(bx, 5.06, bz, 5.4, 0.34, 0.6, '#33373e');
+    mirrorX((s) => v.box(bx + s * 2.75, 5.26, bz, 0.5, 0.3, 0.7, '#33373e'));
+    if (SEASON.snow) v.box(bx, 5.4, bz, 5.0, 0.12, 0.64, SNOW);
+    return { doorHalf: 0.9, eave: { y: 3.17, z: bz + 3.75, w: 8.3 }, wreath: { y: 1.6, z: bz + 3.02 } };
+  },
+};
+
+/** Walls, corner trims and gable roof shared by the barn and the cottage. */
+function classicShell(v, bx, bz, st) {
+  const Wd = 7;
+  const Dp = 6;
+  v.box(bx, 0, bz, Wd + 0.3, 0.3, Dp + 0.3, '#a59d90');
+  v.box(bx, 0.3, bz, Wd, 3.0, Dp, st.wall, { jitter: 0.02 });
+  for (const sx of [-1, 1]) {
+    for (const sz of [-1, 1]) {
+      v.box(bx + sx * (Wd / 2 - 0.1), 0.3, bz + sz * (Dp / 2 - 0.1), 0.27, 3.0, 0.27, st.trim);
+    }
   }
+  gableRoof(v, bx, bz, 3.3, STANDARD_ROOF, Dp + 0.6, st.roof, st.wall);
+}
+
+// ---------------------------------------------------------------------------
+// Door pads: a glowing round mat in front of each house door.
+// ---------------------------------------------------------------------------
+
+/** How far in front of the door the pad's center lies. */
+const PAD_OFFSET = 1.05;
+
+/** A pixel-art disc on the ground: a blue ring around a pale middle. */
+export function addPad(v, x, z, y = 0.07) {
+  const R = 0.82;
+  const px = 0.164;
+  const row = (r, yy, color) => {
+    for (let dz = -r + px / 2; dz < r; dz += px) {
+      const w = Math.round((2 * Math.sqrt(r * r - dz * dz)) / px) * px;
+      if (w > 0) v.box(x, yy, z + dz, w, 0.02, px, color);
+    }
+  };
+  row(R, y, '#7fd6ff');
+  row(R - 0.2, y + 0.01, '#eafaff');
+  row(R - 0.5, y + 0.02, '#fff6c9');
+}
+
+/** Small lights that rise from each pad and fade, five per pad, drawn as one instanced mesh. */
+export function padSparkles(spots) {
+  const PER = 5;
+  const mesh = new THREE.InstancedMesh(
+    new THREE.BoxGeometry(0.1, 0.1, 0.1),
+    new THREE.MeshBasicMaterial({ color: '#fffbe0' }),
+    Math.max(1, spots.length * PER),
+  );
+  mesh.frustumCulled = false;
+  const m = new THREE.Matrix4();
+  const q = new THREE.Quaternion();
+  const pos = new THREE.Vector3();
+  const scale = new THREE.Vector3();
+  return {
+    mesh,
+    update(t) {
+      spots.forEach((s, i) => {
+        for (let k = 0; k < PER; k++) {
+          const phase = (t * 0.45 + k / PER + i * 0.37) % 1;
+          const a = k * 2.4 + i;
+          const size = Math.sin(phase * Math.PI);
+          pos.set(s.x + Math.cos(a) * 0.5, 0.15 + phase * 1.5, s.z + Math.sin(a) * 0.5);
+          scale.setScalar(size);
+          mesh.setMatrixAt(i * PER + k, m.compose(pos, q, scale));
+        }
+      });
+      mesh.instanceMatrix.needsUpdate = true;
+    },
+  };
 }
 
 /** A small Christmas wreath with a red bow, centered at (x, y) on a wall facing +z. */

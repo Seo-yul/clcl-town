@@ -362,7 +362,7 @@ export class Dialog {
   }
 
   /** Farm info. When `guestbook` (giscus settings) is given, the farm's guestbook is shown below. */
-  farm(farm, guestbook = null) {
+  farm(farm, guestbook = null, { toGuestbook = false } = {}) {
     this.show(
       `<p class="kicker">농장 정보</p>
        <h2><b>${escapeHtml(farm.owner)}</b></h2>
@@ -379,6 +379,18 @@ export class Dialog {
     );
     if (guestbook) {
       mountGiscus(this.body.querySelector('.guestbook'), guestbook, guestbook.titleFormat.replace('{name}', farm.owner));
+      // Opened from the guestbook on the table: start at the guestbook, not at the top.
+      // The guestbook grows as it loads, so keep it in view until the visitor scrolls.
+      if (toGuestbook) {
+        const box = this.body.querySelector('.guestbook');
+        const card = this.el.querySelector('.card');
+        const watch = new ResizeObserver(() => box.previousElementSibling.scrollIntoView());
+        const stop = () => watch.disconnect();
+        watch.observe(box);
+        setTimeout(stop, 5000);
+        card.addEventListener('wheel', stop, { once: true, passive: true });
+        card.addEventListener('touchstart', stop, { once: true, passive: true });
+      }
     }
   }
 

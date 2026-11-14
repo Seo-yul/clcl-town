@@ -2,6 +2,7 @@ import './style.css';
 import * as THREE from 'three';
 import { CONFIG, resolveOwners, guestbookReady } from './config.js';
 import { buildWorld } from './world.js';
+import { buildHome } from './home.js';
 import { Player } from './player.js';
 import { Sky, TIMES, TIME_ORDER, timeForHour } from './sky.js';
 import { Overlay, Minimap, Dialog, Prompt, toast, areaBanner, setupTouch } from './ui.js';
@@ -51,9 +52,11 @@ function applyQuality() {
   renderer.shadowMap.enabled = !lite;
   falling?.setLite(lite);
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, lite ? 1 : 2));
-  scene.traverse((o) => {
-    if (o.material) o.material.needsUpdate = true;
-  });
+  for (const s of [scene, ...(world?.farms || []).map((f) => f.home?.scene)]) {
+    s?.traverse((o) => {
+      if (o.material) o.material.needsUpdate = true;
+    });
+  }
   renderer.setSize(window.innerWidth, window.innerHeight, false);
 }
 
@@ -176,8 +179,9 @@ function readInput() {
     x /= len;
     z /= len;
   }
-  input.x = dialog.open ? 0 : x;
-  input.z = dialog.open ? 0 : z;
+  const held = dialog.open || warping;
+  input.x = held ? 0 : x;
+  input.z = held ? 0 : z;
   input.run = keys.has('ShiftLeft') || keys.has('ShiftRight') || input.joyRun;
 }
 
@@ -204,16 +208,17 @@ let focus = null;
 
 function findFocus() {
   const p = player.pos;
+  const here = place || world;
   let best = null;
   let bestD = Infinity;
-  for (const it of world.interactables) {
+  for (const it of here.interactables) {
     const d = Math.hypot(it.x - p.x, it.z - p.z);
     if (d < it.r && d < bestD) {
       best = it;
       bestD = d;
     }
   }
-  for (const a of world.animals) {
+  for (const a of here.animals) {
     const d = Math.hypot(a.pos.x - p.x, a.pos.z - p.z) - a.radius;
     if (d < 1.3 && d < bestD) {
       best = { kind: 'animal', animal: a };
@@ -228,6 +233,7 @@ function promptText(f) {
   if (f.kind === 'farm') return `${f.farm.owner}의 농장 정보 보기`;
   if (f.kind === 'board') return '마을 안내판 보기';
   if (f.kind === 'github') return '기여하기';
+  if (f.kind === 'book') return '방명록 보기';
   if (f.kind === 'animal') return f.animal.actionLabel;
   return '';
 }
@@ -237,6 +243,7 @@ function interact() {
   if (focus.kind === 'farm') openFarm(focus.farm);
   else if (focus.kind === 'board') dialog.board(world.farms, travelTo);
   else if (focus.kind === 'github') window.open(focus.url, '_blank', 'noopener');
+  else if (focus.kind === 'book') openFarm(place.farm, { toGuestbook: true });
   else if (focus.kind === 'animal') {
     const a = focus.animal;
     a.pet(player.pos.x, player.pos.z);
@@ -255,8 +262,8 @@ function setFarmParam(owner) {
   history.replaceState(history.state, '', url);
 }
 
-function openFarm(farm) {
-  dialog.farm(farm, guestbook);
+function openFarm(farm, { toGuestbook = false } = {}) {
+  dialog.farm(farm, guestbook, { toGuestbook });
   setFarmParam(farm.owner);
 }
 
@@ -265,8 +272,12 @@ dialog.onClose = () => setFarmParam(null);
 // The big map: M or a click on the corner map opens it, and a click on it moves the player there.
 function openMap() {
   if (state === 'intro' || dialog.open) return;
-  dialog.map(world, player, (spot) => {
+  dialog.map(world, place ? marker : player, (spot) => {
     dialog.close();
+    if (place) {
+      leaveHome(spot);
+      return;
+    }
     player.teleport(spot.x, spot.z, player.heading);
     snapCamera();
   });
@@ -278,6 +289,78 @@ function travelTo(farm) {
   player.teleport(farm.gate.x, farm.gate.z, Math.PI);
   snapCamera();
   toast(`${farm.owner}의 농장 앞으로 왔어요`);
+}
+
+// ---------------------------------------------------------------------------
+// Houses: walking into a farm's front door leads to the room inside (home.js).
+// ---------------------------------------------------------------------------
+
+let place = null; // the house the player is in, or null out in the town
+let warping = false;
+// Where the player counts as standing in the town while indoors: just outside the door.
+const marker = { pos: new THREE.Vector3(), heading: 0 };
+const fade = $('#fade');
+
+/** Darkens the screen, runs `swap` while it is dark, then lights it up again. */
+function warp(swap) {
+  if (warping) return;
+  warping = true;
+  fade.classList.add('show');
+  setTimeout(() => {
+    swap();
+    snapCamera();
+    requestAnimationFrame(() => fade.classList.remove('show'));
+    setTimeout(() => {
+      warping = false;
+    }, 160);
+  }, 230);
+}
+
+function enterHome(farm) {
+  warp(() => {
+    farm.home ||= buildHome(farm);
+    place = farm.home;
+    place.farm = farm;
+    place.setTime(timeKey);
+    marker.pos.set(farm.door.x, 0, farm.door.z + 1.3);
+    place.scene.add(player.object);
+    player.teleport(place.spawn.x, place.spawn.z, Math.PI);
+    $('#labels').style.visibility = 'hidden';
+    currentArea = null;
+    areaBanner(`<small>여기는</small><b>${farm.owner}</b>의 집`);
+  });
+}
+
+/** Back to the town: to `spot` when one is given (the map), or else to the front of the door. */
+function leaveHome(spot = null) {
+  warp(() => {
+    scene.add(player.object);
+    place = null;
+    if (spot) player.teleport(spot.x, spot.z, player.heading);
+    else player.teleport(marker.pos.x, marker.pos.z, 0);
+    $('#labels').style.visibility = '';
+  });
+}
+
+/**
+ * Doors open by walking, with no key press. Outside, the player has to be pushing into the door,
+ * so passing by on the path does not count. Inside, walking out through the doorway leaves.
+ */
+function checkDoors() {
+  if (warping || dialog.open) return;
+  const p = player.pos;
+  if (place) {
+    if (p.z > place.exitZ && input.z > 0.2) leaveHome();
+    return;
+  }
+  if (input.z > -0.3 || p.y > 0.6) return;
+  for (const f of world.farms) {
+    const d = f.door;
+    if (Math.abs(p.x - d.x) < d.half && p.z > d.z && p.z < d.z + 0.62) {
+      enterHome(f);
+      return;
+    }
+  }
 }
 
 let currentArea = null;
@@ -322,6 +405,7 @@ function renderTimeBtn() {
 timeBtn.addEventListener('click', () => {
   timeKey = TIME_ORDER[(TIME_ORDER.indexOf(timeKey) + 1) % TIME_ORDER.length];
   sky.apply(timeKey);
+  place?.setTime(timeKey);
   renderTimeBtn();
   timeBtn.blur();
 });
@@ -393,6 +477,8 @@ const enterLook = new THREE.Vector3();
 function followOffset() {
   const portrait = window.innerHeight > window.innerWidth;
   const k = zoom * (portrait ? 1.35 : 1);
+  // Indoors the camera comes closer and looks down a little more steeply.
+  if (place) return new THREE.Vector3(0, 13 * k, 11.5 * k);
   return new THREE.Vector3(0, 19 * k, 19 * k);
 }
 
@@ -509,18 +595,22 @@ renderer.setAnimationLoop(() => {
 
   readInput();
   if (state === 'play') {
-    player.update(dt, input, world);
-    focus = dialog.open ? null : findFocus();
+    player.update(dt, input, place || world);
+    checkDoors();
+    focus = dialog.open || warping ? null : findFocus();
     prompt.set(promptText(focus));
-    checkArea();
-    ambientChatter(dt);
+    if (!place) {
+      checkArea();
+      ambientChatter(dt);
+    }
   } else if (state === 'entering') {
     player.animate(dt);
   } else {
     player.animate(dt);
   }
 
-  world.update(dt, elapsed, player.pos);
+  world.update(dt, elapsed, place ? marker.pos : player.pos);
+  place?.update(dt, elapsed);
   sky.update(dt);
   updateCamera(dt, elapsed);
   sky.follow(state === 'intro' ? ORIGIN : camTarget);
@@ -530,10 +620,10 @@ renderer.setAnimationLoop(() => {
     fireflies.update(dt, elapsed, state === 'intro' ? ORIGIN : camTarget);
   }
 
-  renderer.render(scene, camera);
+  renderer.render(place ? place.scene : scene, camera);
   overlay.update(camera, window.innerWidth, window.innerHeight, elapsed);
-  if (state !== 'intro') minimap.draw(player);
+  if (state !== 'intro') minimap.draw(place ? marker : player);
 });
 
 // Handy for debugging in the console.
-window.clclTown = { world, player, camera, scene, sky, travelTo };
+window.clclTown = { world, player, camera, scene, sky, travelTo, enterHome, leaveHome };
