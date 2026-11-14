@@ -130,6 +130,11 @@ window.addEventListener('keydown', (e) => {
   // Typing in a text box (the farm search) is not a game control. On a Korean keyboard ㄷ is
   // the E key and ㅇ is D, so the keys must reach the box. Escape still closes the window.
   if (e.target instanceof HTMLInputElement && (e.target.type === 'search' || e.target.type === 'text')) {
+    // E still held down from opening the board repeats into the box that just took focus.
+    if (e.repeat && keys.has(e.code)) {
+      e.preventDefault();
+      return;
+    }
     if (e.code === 'Escape' && dialog.open) dialog.close();
     return;
   }
@@ -146,7 +151,12 @@ window.addEventListener('keydown', (e) => {
   keys.add(e.code);
   if (e.code === 'KeyM' && !e.repeat) toggleMusic();
   if (e.code === 'Space' && !e.repeat) input.jump = true;
-  if (e.code === 'KeyE' && !e.repeat) interact();
+  if (e.code === 'KeyE' && !e.repeat) {
+    // The board window focuses its search box while this key is still being handled, and the
+    // browser would then type the letter into it. Cancelling the key keeps the box empty.
+    e.preventDefault();
+    interact();
+  }
 });
 window.addEventListener('keyup', (e) => keys.delete(e.code));
 window.addEventListener('blur', () => keys.clear());
