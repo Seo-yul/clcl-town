@@ -423,7 +423,9 @@ body.touch #musicVol::-webkit-slider-thumb {
   flex-wrap: wrap;
   justify-content: center;
   gap: 4px 14px;
-  max-width: calc(100% - 32px);
+  /* A fixed box at left: 50% would otherwise only get half the screen and wrap early. */
+  width: max-content;
+  max-width: calc(100vw - 32px);
   padding: 8px 16px;
   border-radius: 999px;
   background: rgba(255, 253, 247, 0.85);
@@ -930,4 +932,23 @@ body.touch .chips .tc {
   #intro .logo {
     animation: none;
   }
+}
+
+/* ---------- big map ---------- */
+
+#minimap {
+  cursor: pointer;
+}
+
+#dialog .card[data-kind='map'] {
+  width: min(760px, 100%);
+}
+
+.big-map {
+  display: block;
+  margin: 14px auto 0;
+  border: 3px solid var(--ink);
+  border-radius: 12px;
+  cursor: crosshair;
+  touch-action: manipulation;
 }

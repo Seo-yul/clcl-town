@@ -187,7 +187,11 @@ const MAP_SPRING = { grass: '#93cc63', road: '#e6d2a8', plot: '#b2df82', water: 
 const MAP_SUMMER = { grass: '#6fb34b', road: '#e6d2a8', plot: '#8fcc64', water: '#6cc4e8' };
 
 export class Minimap {
-  constructor(canvas, world) {
+  /**
+   * The corner map by default. The big map passes its own `width` (CSS px, recomputed on resize),
+   * `fit: true` to keep the town's real proportions, and larger `maxFont` and `arrow` sizes.
+   */
+  constructor(canvas, world, { width = null, fit = false, maxFont = 11, arrow = 6 } = {}) {
     this.canvas = canvas;
     this.world = world;
     const margin = 8;
@@ -196,15 +200,16 @@ export class Minimap {
     this.minZ = world.bounds.minZ - margin;
     this.maxZ = world.bounds.maxZ + margin;
     const aspect = (this.maxZ - this.minZ) / (this.maxX - this.minX);
-    this.cssW = 200;
-    this.cssH = Math.round(Math.max(100, Math.min(200, this.cssW * aspect)));
+    this.ratio = fit ? aspect : Math.round(Math.max(100, Math.min(200, 200 * aspect))) / 200;
+    this.width = width || (() => (window.innerWidth < 640 ? 128 : 200));
+    this.maxFont = maxFont;
+    this.arrow = arrow;
     this.resize();
   }
 
   resize() {
-    const small = window.innerWidth < 640;
-    const w = small ? 128 : this.cssW;
-    const h = Math.round(w * (this.cssH / this.cssW));
+    const w = this.width(this);
+    const h = Math.round(w * this.ratio);
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
     this.canvas.style.width = `${w}px`;
     this.canvas.style.height = `${h}px`;
@@ -222,6 +227,11 @@ export class Minimap {
 
   mz(z) {
     return (z - this.minZ) * this.sz;
+  }
+
+  /** The town position under a point given in CSS pixels from the canvas's top-left corner. */
+  toWorld(cssX, cssY) {
+    return { x: this.minX + (cssX * this.dpr) / this.sx, z: this.minZ + (cssY * this.dpr) / this.sz };
   }
 
   drawBase() {
@@ -249,7 +259,7 @@ export class Minimap {
     // When the plot is too small for a readable name, the plot is left unlabeled.
     const plotCss = (22 * this.sx) / this.dpr;
     const longest = Math.max(...w.farms.map((f) => [...f.owner].length), 1);
-    const fontCss = Math.min(11, Math.floor((plotCss * 0.95) / longest));
+    const fontCss = Math.min(this.maxFont, Math.floor((plotCss * 0.95) / longest));
     const family = fontCss >= 11 ? 'Galmuri11, sans-serif' : '"Apple SD Gothic Neo", "Malgun Gothic", sans-serif';
     g.textAlign = 'center';
     g.textBaseline = 'middle';
@@ -278,13 +288,22 @@ export class Minimap {
     this.base = off;
   }
 
-  draw(player) {
+  draw(player, target = null) {
     if (!this.base) this.drawBase();
     const g = this.canvas.getContext('2d');
     g.drawImage(this.base, 0, 0);
+    if (target) {
+      g.beginPath();
+      g.arc(this.mx(target.x), this.mz(target.z), 6 * this.dpr, 0, Math.PI * 2);
+      g.fillStyle = 'rgba(255, 255, 255, 0.55)';
+      g.strokeStyle = '#2b2a3d';
+      g.lineWidth = 2 * this.dpr;
+      g.fill();
+      g.stroke();
+    }
     const x = this.mx(player.pos.x);
     const z = this.mz(player.pos.z);
-    const s = 6 * this.dpr;
+    const s = this.arrow * this.dpr;
     g.save();
     g.translate(x, z);
     g.rotate(-player.heading + Math.PI);
@@ -319,9 +338,12 @@ export class Dialog {
     });
   }
 
-  show(html, accent = '#ff7a59', { wide = false } = {}) {
+  show(html, accent = '#ff7a59', { wide = false, kind = null } = {}) {
+    this.kind = kind;
     this.body.innerHTML = html;
-    this.el.querySelector('.card').classList.toggle('wide', wide);
+    const card = this.el.querySelector('.card');
+    card.classList.toggle('wide', wide);
+    card.dataset.kind = kind || '';
     this.el.style.setProperty('--accent', accent);
     this.el.hidden = false;
     this.open = true;
@@ -358,6 +380,51 @@ export class Dialog {
     if (guestbook) {
       mountGiscus(this.body.querySelector('.guestbook'), guestbook, guestbook.titleFormat.replace('{name}', farm.owner));
     }
+  }
+
+  /** The big town map. Clicking a spot calls `onPick` with a free place near it. */
+  map(world, player, onPick) {
+    this.show(
+      `<p class="kicker">마을 지도</p>
+       <h2>클클 타운 지도</h2>
+       <p class="owner">가고 싶은 곳을 누르면 그곳으로 바로 이동해요.</p>
+       <canvas class="big-map" aria-label="클클 타운 지도"></canvas>`,
+      '#7fbf5c',
+      { wide: true, kind: 'map' },
+    );
+    const canvas = this.body.querySelector('.big-map');
+    const card = this.el.querySelector('.card');
+    const map = new Minimap(canvas, world, {
+      fit: true,
+      maxFont: 16,
+      arrow: 9,
+      // As wide as the window allows, but short enough that the close button stays in view.
+      width: (m) => {
+        const top = canvas.getBoundingClientRect().top - card.getBoundingClientRect().top;
+        const room = window.innerHeight - 32 - top - 86;
+        return Math.max(220, Math.floor(Math.min(this.body.clientWidth, room / m.ratio)));
+      },
+    });
+    const spotAt = (e) => {
+      const r = canvas.getBoundingClientRect();
+      const p = map.toWorld(e.clientX - r.left, e.clientY - r.top);
+      return world.freeSpot(p.x, p.z);
+    };
+    let frame = 0;
+    canvas.addEventListener('pointermove', (e) => {
+      if (e.pointerType !== 'mouse') return;
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => map.draw(player, spotAt(e)));
+    });
+    canvas.addEventListener('pointerleave', () => {
+      cancelAnimationFrame(frame);
+      map.draw(player);
+    });
+    canvas.addEventListener('click', (e) => {
+      const spot = spotAt(e);
+      if (spot) onPick(spot);
+    });
+    map.draw(player);
   }
 
   board(farms, onPick) {

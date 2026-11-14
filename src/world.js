@@ -381,6 +381,29 @@ export function buildWorld(scene, owners, { seed, shuffle, animalsPerFarm = 1, p
       setDecorGlow(lamps);
     },
     spawn: new THREE.Vector3(L.plaza.x, 0, L.plaza.z + 7),
+    /**
+     * The nearest place to (x, z) where the player can stand: inside the town and clear of every
+     * wall, fence, tree and prop. Searches outward in rings; null if nothing is free nearby.
+     */
+    freeSpot(x, z, r = 0.55) {
+      const inside = (px, pz) => px > bounds.minX + 1 && px < bounds.maxX - 1 && pz > bounds.minZ + 1 && pz < bounds.maxZ - 1;
+      const free = (px, pz) =>
+        inside(px, pz) && colliders.every((c) => px < c.minX - r || px > c.maxX + r || pz < c.minZ - r || pz > c.maxZ + r);
+      x = Math.min(bounds.maxX - 1.5, Math.max(bounds.minX + 1.5, x));
+      z = Math.min(bounds.maxZ - 1.5, Math.max(bounds.minZ + 1.5, z));
+      if (free(x, z)) return { x, z };
+      for (let ring = 1; ring <= 24; ring++) {
+        const d = ring * 0.5;
+        const n = Math.max(8, Math.round(d * 8));
+        for (let k = 0; k < n; k++) {
+          const a = (k / n) * Math.PI * 2;
+          const px = x + Math.cos(a) * d;
+          const pz = z + Math.sin(a) * d;
+          if (free(px, pz)) return { x: px, z: pz };
+        }
+      }
+      return null;
+    },
     areaAt(x, z) {
       for (const a of areas) {
         if (x >= a.minX && x <= a.maxX && z >= a.minZ && z <= a.maxZ) return a;

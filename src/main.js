@@ -142,14 +142,15 @@ window.addEventListener('keydown', (e) => {
   if (e.target instanceof HTMLInputElement && e.target.type === 'range' && e.code.startsWith('Arrow')) return;
   if (MOVE_KEYS.includes(e.code)) e.preventDefault();
   if (dialog.open) {
-    if (e.code === 'Escape' || e.code === 'KeyE') {
+    if (e.code === 'Escape' || e.code === 'KeyE' || (e.code === 'KeyM' && dialog.kind === 'map')) {
       e.preventDefault();
       dialog.close();
     }
     return;
   }
   keys.add(e.code);
-  if (e.code === 'KeyM' && !e.repeat) toggleMusic();
+  if (e.code === 'KeyM' && !e.repeat) openMap();
+  if (e.code === 'KeyP' && !e.repeat) toggleMusic();
   if (e.code === 'Space' && !e.repeat) input.jump = true;
   if (e.code === 'KeyE' && !e.repeat) {
     // The board window focuses its search box while this key is still being handled, and the
@@ -260,6 +261,17 @@ function openFarm(farm) {
 }
 
 dialog.onClose = () => setFarmParam(null);
+
+// The big map: M or a click on the corner map opens it, and a click on it moves the player there.
+function openMap() {
+  if (state === 'intro' || dialog.open) return;
+  dialog.map(world, player, (spot) => {
+    dialog.close();
+    player.teleport(spot.x, spot.z, player.heading);
+    snapCamera();
+  });
+}
+$('#minimap').addEventListener('click', openMap);
 
 function travelTo(farm) {
   dialog.close();
